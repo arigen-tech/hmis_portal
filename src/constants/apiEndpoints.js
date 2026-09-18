@@ -18,13 +18,17 @@ export const ENDPOINTS = {
   },
   MASTER: {
     GET_ALL_HOSPITALS: '/master/hospitalResponse/getAll/1',
+    CANCEL_REASON_MASTER: '/master/cancel-payment-reason/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
     OPD_REPORTS_LIST: '/opd/getOpdReportsList',
     OPD_PRESCRIPTION_SLIP: '/report/opdPrescriptionSlip',
     OPD_CASE_SHEET_REPORT: '/report/opdCaseSheetReport',
+    OPD_INVOICE: '/report/opdInvoice',
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
+    RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
+    CANCEL_APPOINTMENT: '/registration/cancelAppointment',
   },
   // USERS: {
   //   PROFILE: '/users/profile',
