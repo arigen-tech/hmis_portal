@@ -188,10 +188,10 @@ export default function Navbar() {
 
           {/* Navigation Links */}
           <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`} id="navbarNav">
-            <ul className="navbar-nav mx-auto mb-2 mb-lg-0 gap-lg-1">
+            <ul className="navbar-nav mx-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-3 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
                   to="/dashboard"
                   end
                 >
@@ -200,7 +200,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-3 py-2 fw-semibold ${isActive ? 'nav-link-pill-active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'nav-link-pill-active' : 'text-secondary'}`} 
                   to="/book-appointment"
                 >
                   Book Appointment
@@ -208,7 +208,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-3 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
                   to="/appointments?tab=radiology"
                 >
                   <i className="fas fa-x-ray me-1" style={{ color: '#7C3AED' }}></i>
@@ -217,7 +217,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-3 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
                   to="/appointments"
                   style={({ isActive }) => isActive ? { borderBottom: '3px solid #1E60F4', color: '#1E60F4' } : {}}
                 >
@@ -226,7 +226,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-3 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
                   to="/health-records"
                   style={({ isActive }) => isActive ? { backgroundColor: '#EBF3FF', borderRadius: '8px 8px 0 0', borderBottom: '3px solid #1E60F4', color: '#1E60F4' } : {}}
                 >

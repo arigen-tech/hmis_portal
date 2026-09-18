@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PdfViewer from '../components/PdfViewer';
@@ -8,6 +8,7 @@ import { ENDPOINTS } from '../constants/apiEndpoints';
 
 export default function MyAppointments() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Navigation State
   const [activeMenu, setActiveMenu] = useState('opd'); // 'opd', 'radiology', 'lab', 'diagnostics'
@@ -61,7 +62,7 @@ export default function MyAppointments() {
     if (action === 'book-radiology') {
       handleOpenBookModal('radiology');
     } else if (action === 'book-lab') {
-      handleOpenBookModal('lab');
+      navigate('/book-lab-test');
     }
   }, [searchParams]);
 
@@ -482,18 +483,14 @@ export default function MyAppointments() {
 
   const handleOpenBookModal = (type) => {
     if (type === 'lab') {
-      setNewBookingTest('Complete Blood Count (CBC)');
-      setNewBookingHospital('ARI Hospital, Delhi');
-      setNewBookingDate('2026-10-15');
-      setNewBookingTime('Fri, 08:00 AM');
-      setModalType('book-lab');
-    } else {
-      setNewBookingTest('X-Ray Chest (PA View)');
-      setNewBookingHospital('ARI Hospital, Delhi');
-      setNewBookingDate('2026-10-18');
-      setNewBookingTime('Tue, 02:00 PM');
-      setModalType('book-radiology');
+      navigate('/book-lab-test');
+      return;
     }
+    setNewBookingTest('X-Ray Chest (PA View)');
+    setNewBookingHospital('ARI Hospital, Delhi');
+    setNewBookingDate('2026-10-18');
+    setNewBookingTime('Tue, 02:00 PM');
+    setModalType('book-radiology');
   };
 
   const handleConfirmBookTest = (type) => {
@@ -578,7 +575,7 @@ export default function MyAppointments() {
           <button
             type="button"
             className="btn-book-lab"
-            onClick={() => handleOpenBookModal('lab')}
+            onClick={() => navigate('/book-lab-test')}
           >
             <i className="fas fa-flask"></i> Book Lab Test
           </button>
@@ -1520,7 +1517,7 @@ export default function MyAppointments() {
                     <button
                       type="button"
                       className="btn-book-lab"
-                      onClick={() => handleOpenBookModal('lab')}
+                      onClick={() => navigate('/book-lab-test')}
                     >
                       <i className="fas fa-flask"></i> Book Lab Test
                     </button>

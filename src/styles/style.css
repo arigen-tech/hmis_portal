@@ -381,6 +381,10 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 14px; /* Global base font size: scales all rem-based typography and UI components across the entire project */
+}
+
 body, html {
   min-height: 100%;
   font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

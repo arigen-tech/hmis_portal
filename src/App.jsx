@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import MyAppointments from './pages/MyAppointments';
 import BookAppointment from './pages/BookAppointment';
 import HealthRecords from './pages/HealthRecords';
+import BookLabTest from './pages/BookLabTest';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -26,6 +27,9 @@ export default function App() {
             <Route path="/book-appointment" element={<BookAppointment />} />
             <Route path="/book-opd-consultation" element={<BookAppointment />} />
             <Route path="/booking" element={<BookAppointment />} />
+            <Route path="/book-lab-test" element={<BookLabTest />} />
+            {/* <Route path="/book-lab" element={<BookLabTest />} /> */}
+            {/* <Route path="/lab-booking" element={<BookLabTest />} /> */}
             <Route path="/appointments" element={<MyAppointments />} />
             <Route path="/my-appointments" element={<MyAppointments />} />
             <Route path="/health-records" element={<HealthRecords />} />
