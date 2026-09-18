@@ -29,9 +29,14 @@ export default function MyAppointments() {
   // Reschedule Form State
   const [rescheduleDate, setRescheduleDate] = useState('2026-10-20');
   const [rescheduleTime, setRescheduleTime] = useState('11:00 AM');
+  const [showRescheduleConfirm, setShowRescheduleConfirm] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Cancel Form State
-  const [cancelReason, setCancelReason] = useState('Change of schedule');
+  const [cancelReasonsList, setCancelReasonsList] = useState([]);
+  const [cancelReasonId, setCancelReasonId] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Payment Method State
   const [paymentMethod, setPaymentMethod] = useState('upi');
@@ -41,6 +46,23 @@ export default function MyAppointments() {
   const [newBookingHospital, setNewBookingHospital] = useState('ARI Hospital, Delhi');
   const [newBookingDate, setNewBookingDate] = useState('2026-10-18');
   const [newBookingTime, setNewBookingTime] = useState('Tue, 02:00 PM');
+
+  useEffect(() => {
+    const fetchCancelReasons = async () => {
+      try {
+        const response = await apiService.get(ENDPOINTS.MASTER.CANCEL_REASON_MASTER);
+        if (response?.status === 200 && response?.response) {
+          setCancelReasonsList(response.response);
+          if (response.response.length > 0) {
+            setCancelReasonId(response.response[0].reasonId);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch cancel reasons", err);
+      }
+    };
+    fetchCancelReasons();
+  }, []);
 
   // URL Parameter Listener (e.g. ?tab=radiology or ?tab=lab or ?action=book-radiology)
   useEffect(() => {
@@ -134,7 +156,8 @@ export default function MyAppointments() {
                 status: 'completed',
                 type: 'opd',
                 prescriptionHdId: app.prescriptionHdId,
-                prescriptionStatus: app.prescriptionStatus
+                prescriptionStatus: app.prescriptionStatus,
+                billHdId: app.billingHeaderId
               };
             });
             setPastAppointments(mapped);
@@ -177,7 +200,8 @@ export default function MyAppointments() {
                 cancelledBy: app.cancelledBy,
                 cancellationReason: app.cancellationReason,
                 refundId: app.refundId,
-                refundDate: app.refundDate
+                refundDate: app.refundDate,
+                billHdId: app.billingHeaderId
               };
             });
             
@@ -248,7 +272,8 @@ export default function MyAppointments() {
                 paymentStatus: app.visitPaymentStatus === 'y' ? 'Paid' : 'Pending',
                 amount: app.billedAmount || 0,
                 status: isDiagnostic ? diagStatus : opdStatus,
-                type: app.departmentName?.toLowerCase().includes('lab') ? 'lab' : (app.departmentName?.toLowerCase().includes('rad') ? 'radiology' : 'opd')
+                type: app.departmentName?.toLowerCase().includes('lab') ? 'lab' : (app.departmentName?.toLowerCase().includes('rad') ? 'radiology' : 'opd'),
+                billHdId: app.billingHeaderId
               };
             });
             
@@ -276,7 +301,7 @@ export default function MyAppointments() {
     };
     
     fetchAppointments();
-  }, [activeMenu, diagnosticTab, activeSubTab, historyFilter]);
+  }, [activeMenu, diagnosticTab, activeSubTab, historyFilter, refreshTrigger]);
 
   const showToast = (message, type = 'success') => {
     setToastMessage({ text: message, type });
@@ -368,89 +393,116 @@ export default function MyAppointments() {
     setSelectedAppointment(app);
     setRescheduleDate('2026-10-25');
     setRescheduleTime('11:00 AM');
+    setShowRescheduleConfirm(false);
     setModalType('reschedule');
   };
 
   const handleConfirmReschedule = () => {
+    setShowRescheduleConfirm(true);
+  };
+
+  const handleApproveReschedule = async () => {
     if (!selectedAppointment) return;
     const displayName = selectedAppointment.testName || selectedAppointment.doctor;
+    
+    setIsRescheduling(true);
+    try {
+      let moduleType = 'OPD';
+      if (selectedAppointment.type === 'lab') moduleType = 'LAB';
+      if (selectedAppointment.type === 'radiology') moduleType = 'RAD';
 
-    if (selectedAppointment.type === 'lab') {
-      setLabAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, date: rescheduleDate, dayTime: rescheduleTime }
-            : item
-        )
-      );
-    } else if (selectedAppointment.type === 'radiology') {
-      setRadiologyAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, date: rescheduleDate, dayTime: rescheduleTime }
-            : item
-        )
-      );
-    } else {
-      setUpcomingAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, date: rescheduleDate, dayTime: rescheduleTime }
-            : item
-        )
-      );
+      let apiStartTime = null;
+      let apiEndTime = null;
+
+      if (moduleType === 'OPD') {
+        apiStartTime = rescheduleTime;
+      }
+
+      const payload = {
+        visitId: selectedAppointment.id,
+        moduleType: moduleType,
+        tokenNumber: null,
+        visitDate: `${rescheduleDate}T00:00:00Z`,
+        appointmentStartTime: apiStartTime,
+        appointmentEndTime: apiEndTime
+      };
+
+      const response = await apiService.post(ENDPOINTS.APPOINTMENTS.RESCHEDULE_APPOINTMENT, payload);
+
+      if (response && response.status === 200) {
+        setRefreshTrigger(prev => prev + 1);
+
+        setModalType(null);
+        showToast(`Appointment rescheduled for ${displayName} to ${rescheduleDate}!`);
+      } else {
+        showToast(response?.message || "Failed to reschedule appointment", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("An error occurred while rescheduling.", "error");
+    } finally {
+      setIsRescheduling(false);
     }
-
-    setModalType(null);
-    showToast(`Appointment rescheduled for ${displayName} to ${rescheduleDate} at ${rescheduleTime}!`);
   };
 
   const handleOpenCancel = (app) => {
     setSelectedAppointment(app);
-    setCancelReason('Change of schedule');
+    if (cancelReasonsList.length > 0) {
+      setCancelReasonId(cancelReasonsList[0].reasonId);
+    }
     setModalType('cancel');
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     if (!selectedAppointment) return;
     const displayName = selectedAppointment.testName || selectedAppointment.doctor;
 
-    if (selectedAppointment.type === 'lab') {
-      setLabAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, status: 'Cancelled' }
-            : item
-        )
-      );
-    } else if (selectedAppointment.type === 'radiology') {
-      setRadiologyAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, status: 'Cancelled' }
-            : item
-        )
-      );
-    } else {
-      setUpcomingAppointments(prev => prev.filter(item => item.id !== selectedAppointment.id));
-      setPastAppointments(prev => [
-        {
-          ...selectedAppointment,
-          id: `past-cancelled-${Date.now()}`,
-          status: 'cancelled',
-          tokenNo: '-'
-        },
-        ...prev
-      ]);
-    }
+    setIsCancelling(true);
+    try {
+      const payload = {
+        visitId: selectedAppointment.id,
+        cancelReasonId: cancelReasonId,
+        paymentMode: "CASH",
+        refundAmount: selectedAppointment.paymentStatus === 'Paid' ? (selectedAppointment.amount || 0) : 0
+      };
 
-    setModalType(null);
-    showToast(`Appointment for ${displayName} has been cancelled.`, 'info');
+      const response = await apiService.post(ENDPOINTS.APPOINTMENTS.CANCEL_APPOINTMENT, payload);
+      
+      if (response && response.status === 200) {
+        setRefreshTrigger(prev => prev + 1);
+        setModalType(null);
+        showToast(`Appointment for ${displayName} has been cancelled.`, 'info');
+      } else {
+        showToast(response?.message || "Failed to cancel appointment", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("An error occurred while cancelling.", "error");
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
-  const handleOpenInvoice = (app) => {
-    setSelectedAppointment(app);
-    setModalType('invoice');
+  const handleOpenInvoice = async (app) => {
+    if (!app.billHdId) {
+      showToast("No invoice available", "error");
+      return;
+    }
+    
+    try {
+      setLoadingPdfId(`${app.id}_invoice`);
+      const url = `${ENDPOINTS.APPOINTMENTS.OPD_INVOICE}?billHdId=${app.billHdId}&flag=D`;
+      const blob = await apiService.getPdf(url);
+      const objUrl = URL.createObjectURL(blob);
+      setPdfUrl(objUrl);
+      setPdfName(`Invoice - ${app.date}`);
+      setShowPdfViewer(true);
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to load invoice", "error");
+    } finally {
+      setLoadingPdfId(null);
+    }
   };
 
   const handleOpenReport = (app) => {
@@ -672,8 +724,13 @@ export default function MyAppointments() {
                             type="button"
                             className="btn-action-outline"
                             onClick={() => handleOpenInvoice(app)}
+                            disabled={loadingPdfId === `${app.id}_invoice`}
                           >
-                            View Invoice
+                            {loadingPdfId === `${app.id}_invoice` ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              'View Invoice'
+                            )}
                           </button>
                           <button
                             type="button"
@@ -731,8 +788,13 @@ export default function MyAppointments() {
                             type="button"
                             className="btn-action-outline"
                             onClick={() => handleOpenInvoice(app)}
+                            disabled={loadingPdfId === `${app.id}_invoice`}
                           >
-                            View Invoice
+                            {loadingPdfId === `${app.id}_invoice` ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              'View Invoice'
+                            )}
                           </button>
                           <button
                             type="button"
@@ -879,8 +941,13 @@ export default function MyAppointments() {
                             type="button"
                             className="btn-action-outline"
                             onClick={() => handleOpenInvoice(app)}
+                            disabled={loadingPdfId === `${app.id}_invoice`}
                           >
-                            View Invoice
+                            {loadingPdfId === `${app.id}_invoice` ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              'View Invoice'
+                            )}
                           </button>
                           <button
                             type="button"
@@ -938,8 +1005,13 @@ export default function MyAppointments() {
                             type="button"
                             className="btn-action-outline"
                             onClick={() => handleOpenInvoice(app)}
+                            disabled={loadingPdfId === `${app.id}_invoice`}
                           >
-                            View Invoice
+                            {loadingPdfId === `${app.id}_invoice` ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              'View Invoice'
+                            )}
                           </button>
                           <button
                             type="button"
@@ -1171,8 +1243,13 @@ export default function MyAppointments() {
                                         type="button"
                                         className="btn-action-outline"
                                         onClick={() => handleOpenInvoice(app)}
+                                        disabled={loadingPdfId === `${app.id}_invoice`}
                                       >
-                                        View Invoice
+                                        {loadingPdfId === `${app.id}_invoice` ? (
+                                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        ) : (
+                                          'View Invoice'
+                                        )}
                                       </button>
                                     )}
                                     <button
@@ -1328,9 +1405,9 @@ export default function MyAppointments() {
                                         type="button"
                                         className="btn-action-outline"
                                         onClick={() => app.prescriptionHdId ? handleOpenPrescriptionSlip(app) : handleOpenInvoice(app)}
-                                        disabled={loadingPdfId === `${app.id}_prescription`}
+                                        disabled={loadingPdfId === `${app.id}_prescription` || loadingPdfId === `${app.id}_invoice`}
                                       >
-                                        {loadingPdfId === `${app.id}_prescription` ? (
+                                        {(loadingPdfId === `${app.id}_prescription` || loadingPdfId === `${app.id}_invoice`) ? (
                                           <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                         ) : (
                                           app.prescriptionHdId ? 'Prescription Slip' : 'View Invoice'
@@ -1663,51 +1740,86 @@ export default function MyAppointments() {
               </button>
             </div>
             <div className="modal-body-custom">
-              <div className="p-3 bg-light rounded-3 mb-4">
-                <div className="fw-bold text-dark">{selectedAppointment.doctor || selectedAppointment.testName}</div>
-                <div className="text-muted small">
-                  {selectedAppointment.specialty || selectedAppointment.department} • {selectedAppointment.hospital}
+              {showRescheduleConfirm ? (
+                <div className="text-center py-4">
+                  <div className="mb-3 text-warning">
+                    <i className="fas fa-exclamation-triangle fa-3x"></i>
+                  </div>
+                  <h5 className="mb-3">Are you sure you want to reschedule?</h5>
+                  <p className="text-muted mb-0">
+                    The appointment for <strong>{selectedAppointment.doctor || selectedAppointment.testName}</strong> will be moved to <strong>{rescheduleDate}</strong>
+                    {selectedAppointment.type !== 'lab' && selectedAppointment.type !== 'radiology' && ` at ${rescheduleTime}`}.
+                  </p>
                 </div>
-                <div className="mt-2 small text-primary">
-                  Current slot: <strong>{selectedAppointment.date}, {selectedAppointment.dayTime}</strong>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">Select New Date</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  min="2026-09-01"
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">Select Available Time Slot</label>
-                <div className="row g-2">
-                  {['08:30 AM', '09:00 AM', '10:15 AM', '11:00 AM', '02:30 PM', '04:00 PM'].map((slot) => (
-                    <div className="col-4" key={slot}>
-                      <button
-                        type="button"
-                        className={`btn w-100 btn-sm ${rescheduleTime === slot ? 'btn-primary' : 'btn-outline-secondary'}`}
-                        onClick={() => setRescheduleTime(slot)}
-                      >
-                        {slot}
-                      </button>
+              ) : (
+                <>
+                  <div className="p-3 bg-light rounded-3 mb-4">
+                    <div className="fw-bold text-dark">{selectedAppointment.doctor || selectedAppointment.testName}</div>
+                    <div className="text-muted small">
+                      {selectedAppointment.specialty || selectedAppointment.department} • {selectedAppointment.hospital}
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="mt-2 small text-primary">
+                      Current slot: <strong>{selectedAppointment.date}, {selectedAppointment.dayTime}</strong>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Select New Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                      min="2026-09-01"
+                    />
+                  </div>
+
+                  {selectedAppointment.type !== 'lab' && selectedAppointment.type !== 'radiology' && (
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Select Available Time Slot</label>
+                      <div className="row g-2">
+                        {['08:30 AM', '09:00 AM', '10:15 AM', '11:00 AM', '02:30 PM', '04:00 PM'].map((slot) => (
+                          <div className="col-4" key={slot}>
+                            <button
+                              type="button"
+                              className={`btn w-100 btn-sm ${rescheduleTime === slot ? 'btn-primary' : 'btn-outline-secondary'}`}
+                              onClick={() => setRescheduleTime(slot)}
+                            >
+                              {slot}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="modal-footer-custom">
-              <button className="btn btn-light" onClick={() => setModalType(null)}>
-                Close
-              </button>
-              <button className="btn btn-primary px-4 fw-bold" onClick={handleConfirmReschedule}>
-                Confirm Reschedule
-              </button>
+              {showRescheduleConfirm ? (
+                <>
+                  <button className="btn btn-light" onClick={() => setShowRescheduleConfirm(false)} disabled={isRescheduling}>
+                    Back
+                  </button>
+                  <button className="btn btn-primary px-4 fw-bold" onClick={handleApproveReschedule} disabled={isRescheduling}>
+                    {isRescheduling ? (
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    ) : (
+                      <i className="fas fa-check me-2"></i>
+                    )}
+                    Approve
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-light" onClick={() => setModalType(null)}>
+                    Close
+                  </button>
+                  <button className="btn btn-primary px-4 fw-bold" onClick={handleConfirmReschedule}>
+                    Confirm Reschedule
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1734,14 +1846,14 @@ export default function MyAppointments() {
                 <label className="form-label fw-bold">Reason for cancellation</label>
                 <select
                   className="form-select"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
+                  value={cancelReasonId}
+                  onChange={(e) => setCancelReasonId(Number(e.target.value))}
                 >
-                  <option value="Change of schedule">Change of schedule / Conflict</option>
-                  <option value="Doctor unavailable">Need a different doctor / facility</option>
-                  <option value="Recovered">Feeling better / Recovered</option>
-                  <option value="Booked by mistake">Booked by mistake</option>
-                  <option value="Other">Other reason</option>
+                  {cancelReasonsList.map(reason => (
+                    <option key={reason.reasonId} value={reason.reasonId}>
+                      {reason.reasonName}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1755,7 +1867,10 @@ export default function MyAppointments() {
               <button className="btn btn-light" onClick={() => setModalType(null)}>
                 Keep Appointment
               </button>
-              <button className="btn btn-danger px-4 fw-bold" onClick={handleConfirmCancel}>
+              <button className="btn btn-danger px-4 fw-bold" onClick={handleConfirmCancel} disabled={isCancelling}>
+                {isCancelling ? (
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                ) : null}
                 Yes, Cancel Appointment
               </button>
             </div>
