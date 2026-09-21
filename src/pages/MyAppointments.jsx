@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import PdfViewer from '../components/PdfViewer';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
+import { loadRazorpayScript } from '../utils/loadRazorpay';
 
 export default function MyAppointments() {
   const [searchParams] = useSearchParams();
@@ -39,7 +40,9 @@ export default function MyAppointments() {
   const [isCancelling, setIsCancelling] = useState(false);
 
   // Payment Method State
-  const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentGateways, setPaymentGateways] = useState([]);
 
   // Diagnostic Test Booking State
   const [newBookingTest, setNewBookingTest] = useState('X-Ray Chest (PA View)');
@@ -48,20 +51,32 @@ export default function MyAppointments() {
   const [newBookingTime, setNewBookingTime] = useState('Tue, 02:00 PM');
 
   useEffect(() => {
-    const fetchCancelReasons = async () => {
+    const fetchMasterData = async () => {
       try {
-        const response = await apiService.get(ENDPOINTS.MASTER.CANCEL_REASON_MASTER);
-        if (response?.status === 200 && response?.response) {
-          setCancelReasonsList(response.response);
-          if (response.response.length > 0) {
-            setCancelReasonId(response.response[0].reasonId);
+        const cancelRes = await apiService.get(ENDPOINTS.MASTER.CANCEL_REASON_MASTER);
+        if (cancelRes?.status === 200 && cancelRes?.response) {
+          setCancelReasonsList(cancelRes.response);
+          if (cancelRes.response.length > 0) {
+            setCancelReasonId(cancelRes.response[0].reasonId);
           }
         }
       } catch (err) {
         console.error("Failed to fetch cancel reasons", err);
       }
+
+      try {
+        const gatewayRes = await apiService.get(ENDPOINTS.MASTER.PAYMENT_GATEWAY);
+        if (gatewayRes?.status === 200 && gatewayRes?.response) {
+          setPaymentGateways(gatewayRes.response);
+          if (gatewayRes.response.length > 0) {
+            setPaymentMethod(gatewayRes.response[0].gatewayCode);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch payment gateways", err);
+      }
     };
-    fetchCancelReasons();
+    fetchMasterData();
   }, []);
 
   // URL Parameter Listener (e.g. ?tab=radiology or ?tab=lab or ?action=book-radiology)
@@ -358,18 +373,152 @@ export default function MyAppointments() {
     }
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     if (!selectedAppointment) return;
     const displayName = selectedAppointment.testName || selectedAppointment.doctor;
 
     if (selectedAppointment.type === 'lab') {
-      setLabAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, paymentStatus: 'Paid' }
-            : item
-        )
-      );
+      setIsProcessingPayment(true);
+      try {
+        const data = localStorage.getItem('patientDetails');
+        let patientId = null;
+        if (data) {
+          try {
+            patientId = JSON.parse(data).patientId;
+          } catch(e) {}
+        }
+
+        if (!patientId || !selectedAppointment.billHdId) {
+          showToast("Missing patient or billing details.", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const createOrderPayload = {
+          billingItems: [{ billingHdId: selectedAppointment.billHdId, amount: selectedAppointment.amount }],
+          billingType: "LAB_SC",
+          patientId: patientId
+        };
+        const orderRes = await apiService.post(ENDPOINTS.PAYMENTS.CREATE_ORDER, createOrderPayload);
+        if (!orderRes || !orderRes.orderId) {
+          showToast("Failed to create Razorpay order.", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const isLoaded = await loadRazorpayScript();
+        if (!isLoaded) {
+          showToast("Razorpay SDK failed to load. Are you online?", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        let prefill = {};
+        try {
+          const prefillRes = await apiService.get(`${ENDPOINTS.PAYMENTS.RAZORPAY_PREFILL}/${patientId}`);
+          if (prefillRes && prefillRes.response) {
+            prefill = {
+              name: prefillRes.response.patientFullName || "",
+              email: prefillRes.response.email || "",
+              contact: prefillRes.response.phoneNumber || ""
+            };
+          }
+        } catch(e) {
+          console.error("Failed to fetch prefill", e);
+        }
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourTestKeyHere",
+          amount: orderRes.amount,
+          currency: orderRes.currency,
+          name: "ARI Hospital",
+          description: `Payment for ${displayName}`,
+          order_id: orderRes.orderId,
+          prefill: prefill,
+          handler: async function (response) {
+            try {
+              const verifyPayload = {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              };
+              const verifyRes = await apiService.post(ENDPOINTS.PAYMENTS.VERIFY, verifyPayload);
+
+              if (verifyRes && verifyRes.status === "success") {
+                const paymentId = orderRes.paymentIds[0];
+                let isPaid = false;
+                for (let i = 0; i < 10; i++) {
+                  try {
+                    const statusRes = await apiService.get(`${ENDPOINTS.PAYMENTS.STATUS}/${paymentId}`);
+                    if (statusRes && statusRes.paymentStatus === "PAID") {
+                      isPaid = true;
+                      break;
+                    }
+                  } catch (e) {
+                    console.error("Status polling error", e);
+                  }
+                  await new Promise(r => setTimeout(r, 3000));
+                }
+
+                if (!isPaid) {
+                  showToast("Payment verification timed out. Please check later.", "error");
+                  setIsProcessingPayment(false);
+                  return;
+                }
+
+                const finalPayload = {
+                  billingType: "LAB_SC",
+                  billHeaderId: selectedAppointment.billHdId,
+                  amount: selectedAppointment.amount,
+                  mode: "online",
+                  investigationandPackegBillStatus: [],
+                  isPaymentUpdate: true,
+                  shouldNotCreateNewBilling: true,
+                  useExistingBillingHeader: true,
+                  patientId: patientId,
+                  paymentReferenceNo: response.razorpay_payment_id,
+                  timestamp: new Date().toISOString(),
+                  operationType: "payment_update_only"
+                };
+
+                await apiService.post(ENDPOINTS.BILLING.PROCESS_LAB_PAYMENT, finalPayload);
+
+                setLabAppointments(prev =>
+                  prev.map(item =>
+                    item.id === selectedAppointment.id
+                      ? { ...item, paymentStatus: 'Paid' }
+                      : item
+                  )
+                );
+                setModalType(null);
+                showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful!`);
+              } else {
+                showToast("Payment verification failed.", "error");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error during payment verification.", "error");
+            } finally {
+              setIsProcessingPayment(false);
+            }
+          },
+          theme: {
+            color: "#3399cc"
+          }
+        };
+
+        const rzp1 = new window.Razorpay(options);
+        rzp1.on('payment.failed', function (response){
+          console.error("Payment failed", response.error);
+          showToast(response.error.description || "Payment failed", "error");
+          setIsProcessingPayment(false);
+        });
+        rzp1.open();
+      } catch (err) {
+        console.error(err);
+        showToast("An error occurred while initiating payment.", "error");
+        setIsProcessingPayment(false);
+      }
     } else if (selectedAppointment.type === 'radiology') {
       setRadiologyAppointments(prev =>
         prev.map(item =>
@@ -378,6 +527,8 @@ export default function MyAppointments() {
             : item
         )
       );
+      setModalType(null);
+      showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful for ${displayName}!`);
     } else {
       setUpcomingAppointments(prev =>
         prev.map(item =>
@@ -386,10 +537,9 @@ export default function MyAppointments() {
             : item
         )
       );
+      setModalType(null);
+      showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful for ${displayName}!`);
     }
-
-    setModalType(null);
-    showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful for ${displayName}!`);
   };
 
   const handleOpenReschedule = (app) => {
@@ -1684,45 +1834,28 @@ export default function MyAppointments() {
               <div className="mb-3">
                 <label className="form-label fw-bold">Select Payment Method</label>
                 <div className="d-flex flex-column gap-2">
-                  <label className={`p-3 border rounded-3 d-flex align-items-center justify-content-between cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-light' : ''}`}>
-                    <div className="d-flex align-items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'upi'}
-                        onChange={() => setPaymentMethod('upi')}
-                      />
-                      <i className="fas fa-mobile-alt text-primary fs-5"></i>
-                      <span>Instant UPI (Google Pay / PhonePe / Paytm)</span>
-                    </div>
-                    <span className="badge bg-success">Instant</span>
-                  </label>
-
-                  <label className={`p-3 border rounded-3 d-flex align-items-center justify-content-between cursor-pointer ${paymentMethod === 'card' ? 'border-primary bg-light' : ''}`}>
-                    <div className="d-flex align-items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'card'}
-                        onChange={() => setPaymentMethod('card')}
-                      />
-                      <i className="fas fa-credit-card text-primary fs-5"></i>
-                      <span>Credit or Debit Card</span>
-                    </div>
-                  </label>
-
-                  <label className={`p-3 border rounded-3 d-flex align-items-center justify-content-between cursor-pointer ${paymentMethod === 'netbanking' ? 'border-primary bg-light' : ''}`}>
-                    <div className="d-flex align-items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'netbanking'}
-                        onChange={() => setPaymentMethod('netbanking')}
-                      />
-                      <i className="fas fa-university text-primary fs-5"></i>
-                      <span>Net Banking</span>
-                    </div>
-                  </label>
+                  {paymentGateways.length > 0 ? (
+                    paymentGateways.map(gateway => (
+                      <label 
+                        key={gateway.gatewayId} 
+                        className={`p-3 border rounded-3 d-flex align-items-center justify-content-between cursor-pointer ${paymentMethod === gateway.gatewayCode ? 'border-primary bg-light' : ''}`}
+                      >
+                        <div className="d-flex align-items-center gap-3">
+                          <input
+                            type="radio"
+                            name="payMethod"
+                            checked={paymentMethod === gateway.gatewayCode}
+                            onChange={() => setPaymentMethod(gateway.gatewayCode)}
+                          />
+                          <i className={`fas ${gateway.gatewayCode === 'RAZORPAY' ? 'fa-credit-card' : gateway.gatewayCode === 'CASH' ? 'fa-money-bill-wave' : 'fa-wallet'} text-primary fs-5`}></i>
+                          <span>{gateway.gatewayName}</span>
+                        </div>
+                        {gateway.gatewayCode === 'RAZORPAY' && <span className="badge bg-success">Instant</span>}
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-muted small">Loading payment methods...</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1730,8 +1863,12 @@ export default function MyAppointments() {
               <button className="btn btn-light" onClick={() => setModalType(null)}>
                 Cancel
               </button>
-              <button className="btn btn-primary px-4 fw-bold" onClick={handleProcessPayment}>
-                <i className="fas fa-lock me-2"></i> Pay ₹{selectedAppointment.amount.toLocaleString()}
+              <button className="btn btn-primary px-4 fw-bold" onClick={handleProcessPayment} disabled={isProcessingPayment}>
+                {isProcessingPayment ? (
+                  <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processing...</>
+                ) : (
+                  <><i className="fas fa-lock me-2"></i> Pay ₹{selectedAppointment.amount.toLocaleString()}</>
+                )}
               </button>
             </div>
           </div>

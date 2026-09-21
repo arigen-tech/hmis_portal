@@ -19,6 +19,7 @@ export const ENDPOINTS = {
   MASTER: {
     GET_ALL_HOSPITALS: '/master/hospitalResponse/getAll/1',
     CANCEL_REASON_MASTER: '/master/cancel-payment-reason/1',
+    PAYMENT_GATEWAY: '/master/paymentGateway/getAll/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
@@ -37,6 +38,13 @@ export const ENDPOINTS = {
   BILLING: {
     REFUND_DETAILS: '/billing/refundDetails',
     REFUND: '/api/payments/refund',
+    PROCESS_LAB_PAYMENT: '/billing/processLabPayment',
+  },
+  PAYMENTS: {
+    RAZORPAY_PREFILL: '/api/payments/razorpay-prefill',
+    CREATE_ORDER: '/api/payments/create-order',
+    VERIFY: '/api/payments/verify',
+    STATUS: '/api/payments/status',
   },
   // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
 };
