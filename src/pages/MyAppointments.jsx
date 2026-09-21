@@ -157,7 +157,8 @@ export default function MyAppointments() {
                 type: 'opd',
                 prescriptionHdId: app.prescriptionHdId,
                 prescriptionStatus: app.prescriptionStatus,
-                billHdId: app.billingHeaderId
+                billHdId: app.billingHeaderId,
+                paymentGatewayModeName: app.paymentGatewayModeName
               };
             });
             setPastAppointments(mapped);
@@ -201,7 +202,8 @@ export default function MyAppointments() {
                 cancellationReason: app.cancellationReason,
                 refundId: app.refundId,
                 refundDate: app.refundDate,
-                billHdId: app.billingHeaderId
+                billHdId: app.billingHeaderId,
+                paymentGatewayModeName: app.paymentGatewayModeName
               };
             });
             
@@ -273,7 +275,8 @@ export default function MyAppointments() {
                 amount: app.billedAmount || 0,
                 status: isDiagnostic ? diagStatus : opdStatus,
                 type: app.departmentName?.toLowerCase().includes('lab') ? 'lab' : (app.departmentName?.toLowerCase().includes('rad') ? 'radiology' : 'opd'),
-                billHdId: app.billingHeaderId
+                billHdId: app.billingHeaderId,
+                paymentGatewayModeName: app.paymentGatewayModeName
               };
             });
             
@@ -459,11 +462,31 @@ export default function MyAppointments() {
 
     setIsCancelling(true);
     try {
+      let paymentMode = "CASH";
+      const refundAmt = selectedAppointment.paymentStatus === 'Paid' ? (selectedAppointment.amount || 0) : 0;
+
+      if (selectedAppointment.paymentGatewayModeName === "Online") {
+        paymentMode = "RAZORPAY";
+        const refundPayload = {
+          billingHeaderId: selectedAppointment.billHdId,
+          refundAmount: refundAmt,
+          refundReasonId: cancelReasonId
+        };
+        try {
+          await apiService.post(ENDPOINTS.BILLING.REFUND, refundPayload);
+        } catch (error) {
+          console.error("Refund failed:", error);
+          showToast(error?.message || "Failed to initiate refund", "error");
+          setIsCancelling(false);
+          return;
+        }
+      }
+
       const payload = {
         visitId: selectedAppointment.id,
         cancelReasonId: cancelReasonId,
-        paymentMode: "CASH",
-        refundAmount: selectedAppointment.paymentStatus === 'Paid' ? (selectedAppointment.amount || 0) : 0
+        paymentMode: paymentMode,
+        refundAmount: refundAmt
       };
 
       const response = await apiService.post(ENDPOINTS.APPOINTMENTS.CANCEL_APPOINTMENT, payload);
@@ -1473,14 +1496,7 @@ export default function MyAppointments() {
                       <i className="fas fa-calendar-alt"></i>
                       Pending
                     </button>
-                    <button
-                      className={`subtab-btn ${activeSubTab === 'completed' ? 'active' : ''}`}
-                      onClick={() => setActiveSubTab('completed')}
-                      type="button"
-                    >
-                      <i className="fas fa-check-circle"></i>
-                      Completed
-                    </button>
+
                     <button
                       className={`subtab-btn ${activeSubTab === 'cancelled' ? 'active' : ''}`}
                       onClick={() => setActiveSubTab('cancelled')}
@@ -1520,14 +1536,7 @@ export default function MyAppointments() {
                       <i className="fas fa-calendar-alt"></i>
                       Pending
                     </button>
-                    <button
-                      className={`subtab-btn ${activeSubTab === 'completed' ? 'active' : ''}`}
-                      onClick={() => setActiveSubTab('completed')}
-                      type="button"
-                    >
-                      <i className="fas fa-check-circle"></i>
-                      Completed
-                    </button>
+
                     <button
                       className={`subtab-btn ${activeSubTab === 'cancelled' ? 'active' : ''}`}
                       onClick={() => setActiveSubTab('cancelled')}
@@ -1807,7 +1816,7 @@ export default function MyAppointments() {
                     ) : (
                       <i className="fas fa-check me-2"></i>
                     )}
-                    Approve
+                    Confirm
                   </button>
                 </>
               ) : (

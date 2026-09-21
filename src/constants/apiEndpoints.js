@@ -36,6 +36,7 @@ export const ENDPOINTS = {
   // },
   BILLING: {
     REFUND_DETAILS: '/billing/refundDetails',
+    REFUND: '/api/payments/refund',
   },
   // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
 };
