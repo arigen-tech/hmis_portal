@@ -394,6 +394,37 @@ export default function MyAppointments() {
           return;
         }
 
+        if (paymentMethod === 'CASH') {
+          const finalPayload = {
+            billingType: "LAB_SC",
+            billHeaderId: selectedAppointment.billHdId,
+            amount: selectedAppointment.amount,
+            mode: "cash",
+            investigationandPackegBillStatus: [],
+            isPaymentUpdate: true,
+            shouldNotCreateNewBilling: true,
+            useExistingBillingHeader: true,
+            patientId: patientId,
+            paymentReferenceNo: `PAY${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            operationType: "payment_update_only"
+          };
+
+          await apiService.post(ENDPOINTS.BILLING.PROCESS_LAB_PAYMENT, finalPayload);
+
+          setLabAppointments(prev =>
+            prev.map(item =>
+              item.id === selectedAppointment.id
+                ? { ...item, paymentStatus: 'Paid' }
+                : item
+            )
+          );
+          setModalType(null);
+          showToast(`Cash payment of ₹${selectedAppointment.amount.toLocaleString()} successful!`);
+          setIsProcessingPayment(false);
+          return;
+        }
+
         const createOrderPayload = {
           billingItems: [{ billingHdId: selectedAppointment.billHdId, amount: selectedAppointment.amount }],
           billingType: "LAB_SC",
@@ -520,15 +551,180 @@ export default function MyAppointments() {
         setIsProcessingPayment(false);
       }
     } else if (selectedAppointment.type === 'radiology') {
-      setRadiologyAppointments(prev =>
-        prev.map(item =>
-          item.id === selectedAppointment.id
-            ? { ...item, paymentStatus: 'Paid' }
-            : item
-        )
-      );
-      setModalType(null);
-      showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful for ${displayName}!`);
+      setIsProcessingPayment(true);
+      try {
+        const data = localStorage.getItem('patientDetails');
+        let patientId = null;
+        if (data) {
+          try {
+            patientId = JSON.parse(data).patientId;
+          } catch(e) {}
+        }
+
+        if (!patientId || !selectedAppointment.billHdId) {
+          showToast("Missing patient or billing details.", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        if (paymentMethod === 'CASH') {
+          const finalPayload = {
+            billingType: "RAD_SC",
+            billHeaderId: selectedAppointment.billHdId,
+            billingHeaderIds: [selectedAppointment.billHdId],
+            amount: selectedAppointment.amount,
+            mode: "cash",
+            investigationandPackegBillStatus: [],
+            isPaymentUpdate: true,
+            shouldNotCreateNewBilling: true,
+            useExistingBillingHeader: true,
+            patientId: patientId,
+            paymentReferenceNo: `PAY${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            operationType: "payment_update_only"
+          };
+
+          await apiService.post(ENDPOINTS.BILLING.PROCESS_RADIOLOGY_PAYMENT, finalPayload);
+
+          setRadiologyAppointments(prev =>
+            prev.map(item =>
+              item.id === selectedAppointment.id
+                ? { ...item, paymentStatus: 'Paid' }
+                : item
+            )
+          );
+          setModalType(null);
+          showToast(`Cash payment of ₹${selectedAppointment.amount.toLocaleString()} successful!`);
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const createOrderPayload = {
+          billingItems: [{ billingHdId: selectedAppointment.billHdId, amount: selectedAppointment.amount }],
+          billingType: "RAD_SC",
+          patientId: patientId
+        };
+        const orderRes = await apiService.post(ENDPOINTS.PAYMENTS.CREATE_ORDER, createOrderPayload);
+        if (!orderRes || !orderRes.orderId) {
+          showToast("Failed to create Razorpay order.", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const isLoaded = await loadRazorpayScript();
+        if (!isLoaded) {
+          showToast("Razorpay SDK failed to load. Are you online?", "error");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        let prefill = {};
+        try {
+          const prefillRes = await apiService.get(`${ENDPOINTS.PAYMENTS.RAZORPAY_PREFILL}/${patientId}`);
+          if (prefillRes && prefillRes.response) {
+            prefill = {
+              name: prefillRes.response.patientFullName || "",
+              email: prefillRes.response.email || "",
+              contact: prefillRes.response.phoneNumber || ""
+            };
+          }
+        } catch(e) {
+          console.error("Failed to fetch prefill", e);
+        }
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourTestKeyHere",
+          amount: orderRes.amount,
+          currency: orderRes.currency,
+          name: "ARI Hospital",
+          description: `Payment for ${displayName}`,
+          order_id: orderRes.orderId,
+          prefill: prefill,
+          handler: async function (response) {
+            try {
+              const verifyPayload = {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              };
+              const verifyRes = await apiService.post(ENDPOINTS.PAYMENTS.VERIFY, verifyPayload);
+
+              if (verifyRes && verifyRes.status === "success") {
+                const paymentId = orderRes.paymentIds[0];
+                let isPaid = false;
+                for (let i = 0; i < 10; i++) {
+                  try {
+                    const statusRes = await apiService.get(`${ENDPOINTS.PAYMENTS.STATUS}/${paymentId}`);
+                    if (statusRes && statusRes.paymentStatus === "PAID") {
+                      isPaid = true;
+                      break;
+                    }
+                  } catch (e) {
+                    console.error("Status polling error", e);
+                  }
+                  await new Promise(r => setTimeout(r, 3000));
+                }
+
+                if (!isPaid) {
+                  showToast("Payment verification timed out. Please check later.", "error");
+                  setIsProcessingPayment(false);
+                  return;
+                }
+
+                const finalPayload = {
+                  billingType: "RAD_SC",
+                  billHeaderId: selectedAppointment.billHdId,
+                  billingHeaderIds: [selectedAppointment.billHdId],
+                  amount: selectedAppointment.amount,
+                  mode: "online",
+                  investigationandPackegBillStatus: [],
+                  isPaymentUpdate: true,
+                  shouldNotCreateNewBilling: true,
+                  useExistingBillingHeader: true,
+                  patientId: patientId,
+                  paymentReferenceNo: response.razorpay_payment_id,
+                  timestamp: new Date().toISOString(),
+                  operationType: "payment_update_only"
+                };
+
+                await apiService.post(ENDPOINTS.BILLING.PROCESS_RADIOLOGY_PAYMENT, finalPayload);
+
+                setRadiologyAppointments(prev =>
+                  prev.map(item =>
+                    item.id === selectedAppointment.id
+                      ? { ...item, paymentStatus: 'Paid' }
+                      : item
+                  )
+                );
+                setModalType(null);
+                showToast(`Payment of ₹${selectedAppointment.amount.toLocaleString()} successful!`);
+              } else {
+                showToast("Payment verification failed.", "error");
+              }
+            } catch (err) {
+              console.error(err);
+              showToast("Error during payment verification.", "error");
+            } finally {
+              setIsProcessingPayment(false);
+            }
+          },
+          theme: {
+            color: "#3399cc"
+          }
+        };
+
+        const rzp1 = new window.Razorpay(options);
+        rzp1.on('payment.failed', function (response){
+          console.error("Payment failed", response.error);
+          showToast(response.error.description || "Payment failed", "error");
+          setIsProcessingPayment(false);
+        });
+        rzp1.open();
+      } catch (err) {
+        console.error(err);
+        showToast("An error occurred while initiating payment.", "error");
+        setIsProcessingPayment(false);
+      }
     } else {
       setUpcomingAppointments(prev =>
         prev.map(item =>
