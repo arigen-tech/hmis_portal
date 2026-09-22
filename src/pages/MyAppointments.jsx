@@ -21,6 +21,7 @@ import { AppointmentModals } from './MyAppointments/components/AppointmentModals
 
 export default function MyAppointments() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Navigation State
   const [activeMenu, setActiveMenu] = useState(APPOINTMENT_TYPE.OPD);

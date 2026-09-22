@@ -392,68 +392,100 @@ export default function BookAppointment({ defaultView = 'listing' }) {
       {viewMode === 'details' && (
         <main className="container-fluid px-3 px-xl-5 py-3 py-lg-4 flex-grow-1">
           <div className="row g-3 g-lg-4">
-            {/* Left Sidebar Menu */}
+            {/* Left Sidebar: Search Doctor Filter Card */}
             <div className="col-12 col-md-4 col-lg-3">
-              <div className="card border border-light-subtle shadow-sm rounded-3 bg-white p-3 mb-3">
-                <h6 className="fw-bold text-dark mb-3 px-1">Book Appointment</h6>
-
-                <div className="nav flex-column gap-1">
-                  {/* OPD Consultation (Active) */}
-                  <button
-                    type="button"
-                    className="btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 bg-primary bg-opacity-10 text-white fw-semibold border-start border-4 border-primary rounded-start-0"
-                    style={{ fontSize: '0.92rem' }}
-                  >
-                    <i className="fa-solid fa-stethoscope fs-6 me-3 text-white" style={{ width: '20px', textAlign: 'center' }}></i>
-                    <span>OPD Consultation</span>
-                  </button>
-
-                  {/* Book Lab Test */}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/appointments?tab=lab')}
-                    className="btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 text-secondary bg-transparent fw-medium border-0"
-                    style={{ fontSize: '0.92rem' }}
-                  >
-                    <i className="fa-solid fa-flask fs-6 me-3" style={{ width: '20px', textAlign: 'center' }}></i>
-                    <span>Book Lab Test</span>
-                  </button>
-
-                  {/* Book Radiology */}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/appointments?tab=radiology')}
-                    className="btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 text-secondary bg-transparent fw-medium border-0"
-                    style={{ fontSize: '0.92rem' }}
-                  >
-                    <i className="fa-solid fa-x-ray fs-6 me-3" style={{ width: '20px', textAlign: 'center' }}></i>
-                    <span>Book Radiology</span>
-                  </button>
-
-
-                  {/* My Appointments */}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/appointments')}
-                    className="btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 text-secondary bg-transparent fw-medium border-0"
-                    style={{ fontSize: '0.92rem' }}
-                  >
-                    <i className="fa-regular fa-calendar-check fs-6 me-3" style={{ width: '20px', textAlign: 'center' }}></i>
-                    <span>My Appointments</span>
-                  </button>
-
-                  {/* Health Records */}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/health-records')}
-                    className="btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 text-secondary bg-transparent fw-medium border-0"
-                    style={{ fontSize: '0.92rem' }}
-                  >
-                    <i className="fa-regular fa-clipboard fs-6 me-3" style={{ width: '20px', textAlign: 'center' }}></i>
-                    <span>Health Records</span>
-                  </button>
+              <aside className="find-doctor-card">
+                <div className="find-doctor-header">
+                  <h2 className="find-doctor-title">
+                    Find a Doctor <span className="find-doctor-indicator"></span>
+                  </h2>
                 </div>
-              </div>
+
+                <form onSubmit={(e) => e.preventDefault()} className="find-doctor-form">
+                  {/* Search by doctor name or condition */}
+                  <div className="find-doctor-group">
+                    <label className="find-doctor-label">Search</label>
+                    <input
+                      type="text"
+                      className="find-doctor-input"
+                      placeholder="Doctor name or condition..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Specialty Dropdown */}
+                  <div className="find-doctor-group">
+                    <label className="find-doctor-label">Specialty</label>
+                    <select
+                      className="find-doctor-select"
+                      value={selectedSpecialty}
+                      onChange={(e) => setSelectedSpecialty(e.target.value)}
+                    >
+                      <option value="">All Specialties</option>
+                      <option value="ENT Specialist">ENT Specialist</option>
+                      <option value="Cardiologist">Cardiologist</option>
+                      <option value="Dermatologist">Dermatologist</option>
+                      <option value="General Physician">General Physician</option>
+                      <option value="Orthopedic">Orthopedic</option>
+                    </select>
+                  </div>
+
+                  {/* Location Dropdown */}
+                  <div className="find-doctor-group">
+                    <label className="find-doctor-label">Location</label>
+                    <select
+                      className="find-doctor-select"
+                      value={selectedLocation}
+                      onChange={(e) => setSelectedLocation(e.target.value)}
+                    >
+                      <option value="">All Locations</option>
+                      <option value="Noida">Noida</option>
+                      <option value="ARI Hospital, Delhi">ARI Hospital, Delhi</option>
+                      <option value="Skin Care Clinic, Mumbai">Skin Care Clinic, Mumbai</option>
+                      <option value="City Hospital, Delhi">City Hospital, Delhi</option>
+                      <option value="Health Care Center, Noida">Health Care Center, Noida</option>
+                    </select>
+                  </div>
+
+                  {/* Search Button */}
+                  <button
+                    type="button"
+                    className="btn-search-doctors"
+                    onClick={() => {
+                      setViewMode('listing');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    Search
+                  </button>
+
+                  {/* Clear filters if any filter is active */}
+                  {(searchQuery || selectedSpecialty || selectedLocation) && (
+                    <button
+                      type="button"
+                      className="btn-reset-filters"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedSpecialty('');
+                        setSelectedLocation('');
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#64748B',
+                        fontSize: '0.88rem',
+                        fontWeight: '600',
+                        marginTop: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Reset all filters
+                    </button>
+                  )}
+                </form>
+              </aside>
             </div>
 
             {/* Right Section: Doctor Profile + Booking Details */}
