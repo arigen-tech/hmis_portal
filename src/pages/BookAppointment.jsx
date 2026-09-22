@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
+import { ENDPOINTS } from '../constants/apiEndpoints';
 
 export default function BookAppointment({ defaultView = 'listing' }) {
   const navigate = useNavigate();
@@ -167,30 +169,282 @@ export default function BookAppointment({ defaultView = 'listing' }) {
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
 
+  const [displayedDoctors, setDisplayedDoctors] = useState(allDoctors);
+  const [specialtiesList, setSpecialtiesList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [opdSessionsList, setOpdSessionsList] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await apiService.get(ENDPOINTS.MASTER.GET_ALL_HOSPITALS);
+        if (res && res.status === 200 && res.response) {
+          setLocationsList(res.response);
+        }
+      } catch (err) {
+        console.error("Failed to fetch locations:", err);
+      }
+    };
+    fetchLocations();
+    
+    const fetchOpdSessions = async () => {
+      try {
+        const res = await apiService.get(ENDPOINTS.MASTER.GET_OPD_SESSIONS);
+        if (res && res.status === 200 && res.response) {
+          setOpdSessionsList(res.response);
+        }
+      } catch (err) {
+        console.error("Failed to fetch OPD sessions:", err);
+      }
+    };
+    fetchOpdSessions();
+    
+    // Fetch patient info from local storage
+    const activeData = localStorage.getItem('patientDetails');
+    const listData = localStorage.getItem('patientList');
+    
+    let parsedActive = null;
+    let mappedPatients = [];
+
+    if (activeData) {
+      try {
+        parsedActive = JSON.parse(activeData);
+      } catch (e) {
+        console.error("Failed to parse active patient data", e);
+      }
+    }
+
+    if (listData) {
+      try {
+        const parsedList = JSON.parse(listData);
+        mappedPatients = parsedList.map(p => ({
+          id: p.patientId,
+          name: p.patientName,
+          relation: p.relation || 'Self',
+          gender: p.gender || 'N/A',
+          age: p.age || 'N/A',
+          mobileNo: p.mobileNo || parsedActive?.mobileNo || 'N/A'
+        }));
+      } catch (e) {
+        console.error("Failed to parse patient list data", e);
+      }
+    } else if (parsedActive) {
+      mappedPatients = [{
+        id: parsedActive.patientId,
+        name: parsedActive.patientName || 'User',
+        relation: parsedActive.relation || 'Self',
+        gender: parsedActive.gender || 'N/A',
+        age: parsedActive.age || 'N/A',
+        mobileNo: parsedActive.mobileNo || 'N/A'
+      }];
+    }
+    
+    setFamilyMembers(mappedPatients);
+    if (parsedActive && mappedPatients.length > 0) {
+      const current = mappedPatients.find(p => p.id === (parsedActive.patientId || parsedActive.id)) || mappedPatients[0];
+      setSelectedPatient(current);
+    } else if (mappedPatients.length > 0) {
+      setSelectedPatient(mappedPatients[0]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchDoctorsAndSpecialties = async () => {
+      setIsSearching(true);
+      setHasSearched(true);
+      try {
+        const hospitalStr = localStorage.getItem('selectedHospital');
+        let hospitalId = 12;
+        if (hospitalStr) {
+          try {
+            const parsed = JSON.parse(hospitalStr);
+            if (parsed && parsed.id) hospitalId = parsed.id;
+          } catch(e) {}
+        }
+
+        const url = `${ENDPOINTS.APPOINTMENTS.SEARCH_DOCTOR}?search=${encodeURIComponent(searchQuery)}&hospitalId=${hospitalId}`;
+        const res = await apiService.get(url);
+        
+        if (res && res.status === 200 && res.response && res.response.length > 0) {
+          const responseData = res.response[0];
+          const doctorsData = responseData.doctorResponseList || [];
+          const specialitiesData = responseData.specialitiesResponseList || [];
+          
+          const mappedDoctors = doctorsData.map((doc) => ({
+            id: `doc-${doc.doctorId}`,
+            name: doc.doctorName,
+            specialty: 'Specialist',
+            degrees: '', 
+            location: doc.hospitalName,
+            rating: 4.5,
+            fee: doc.consultancyFee || 0,
+            avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
+            gender: 'unknown',
+            experience: doc.yearOfExperience || 'N/A',
+            about: '',
+            expertise: [],
+            education: [],
+            memberships: [],
+            languages: ['English', 'Hindi'],
+            sessions: doc.sessionResponseLists || []
+          }));
+          
+          setDisplayedDoctors(mappedDoctors);
+          setSpecialtiesList(specialitiesData);
+        } else {
+          setDisplayedDoctors([]);
+          setSpecialtiesList([]);
+        }
+      } catch (err) {
+        console.error("Search failed:", err);
+        setDisplayedDoctors([]);
+        setSpecialtiesList([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchDoctorsAndSpecialties();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const fetchDoctorsBySpecialty = async () => {
+      if (!selectedSpecialty) return;
+      setIsSearching(true);
+      setHasSearched(true);
+      try {
+        const url = `${ENDPOINTS.APPOINTMENTS.DOCTORS_BY_SPECIALTY}?specialityId=${selectedSpecialty}`;
+        const res = await apiService.get(url);
+        
+        if (res && res.status === 200 && res.response && res.response.length > 0) {
+          const responseData = res.response[0];
+          const doctorsData = responseData.doctorResponseListList || [];
+          
+          const mappedDoctors = doctorsData.map((doc) => ({
+            id: `doc-${doc.doctorId}`,
+            name: doc.doctorName,
+            specialty: doc.specialityName || 'Specialist',
+            degrees: '', 
+            location: responseData.hospitalName || 'Hospital',
+            rating: 4.5,
+            fee: doc.consultancyFee || 0,
+            avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
+            gender: doc.gender || 'unknown',
+            experience: doc.yearsOfExperience ? `${doc.yearsOfExperience} years` : 'N/A',
+            about: '',
+            expertise: [],
+            education: [],
+            memberships: [],
+            languages: ['English', 'Hindi'],
+            sessions: doc.sessionResponseLists || []
+          }));
+          
+          setDisplayedDoctors(mappedDoctors);
+        } else {
+          setDisplayedDoctors([]);
+        }
+      } catch (err) {
+        console.error("Specialty search failed:", err);
+        setDisplayedDoctors([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    fetchDoctorsBySpecialty();
+  }, [selectedSpecialty]);
+
+  const handleSearchButtonClick = () => {
+    // This will hit a different API based on user's future requirement
+    console.log("Search button clicked - placeholder for different API");
+  };
+
   // Booking details state
-  const [selectedDate, setSelectedDate] = useState('Tue, 16 Sep');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('10:30 AM');
-  const [selectedPatient, setSelectedPatient] = useState('Rahul Verma (Self)');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmedPaymentType, setConfirmedPaymentType] = useState('Pay Now');
 
-  // Date carousel items for OPD consultation
-  const dateOptions = [
-    { day: 'Tue', date: '16 Sep', full: 'Tue, 16 Sep' },
-    { day: 'Wed', date: '17 Sep', full: 'Wed, 17 Sep' },
-    { day: 'Thu', date: '18 Sep', full: 'Thu, 18 Sep' },
-    { day: 'Fri', date: '19 Sep', full: 'Fri, 19 Sep' },
-    { day: 'Sat', date: '20 Sep', full: 'Sat, 20 Sep' },
-    { day: 'Sun', date: '21 Sep', full: 'Sun, 21 Sep' },
-    { day: 'Mon', date: '22 Sep', full: 'Mon, 22 Sep' }
-  ];
+  const [dateOptions, setDateOptions] = useState([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  const [isDoctorDetailsLoading, setIsDoctorDetailsLoading] = useState(false);
 
-  // Time slots matching the design
-  const timeSlotsRow1 = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM'];
-  const timeSlotsRow2 = ['11:30 AM', '12:00 PM', '12:30 PM', '01:00 PM'];
+  const generateDateOptions = (sessions) => {
+    if (!sessions || sessions.length === 0) return [];
+    const availableDays = [...new Set(sessions.map(s => s.day))];
+    const options = [];
+    let date = new Date();
+    let daysAdded = 0;
+    while(options.length < 14 && daysAdded < 30) {
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      if (availableDays.includes(dayName)) {
+        const shortDay = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
+        const dateNum = date.getDate();
+        options.push({
+          day: shortDay,
+          date: `${dateNum} ${monthStr}`,
+          full: `${shortDay}, ${dateNum} ${monthStr}`,
+          dayName: dayName
+        });
+      }
+      date.setDate(date.getDate() + 1);
+      daysAdded++;
+    }
+    return options;
+  };
+
+  useEffect(() => {
+    if (!selectedDoctor || !selectedDoctor.sessions || !selectedDate) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+    const selectedOption = dateOptions.find(d => d.full === selectedDate);
+    if (!selectedOption) return;
+    
+    const daySessions = selectedDoctor.sessions.filter(s => {
+      const matchDay = s.day === selectedOption.dayName;
+      const matchSession = selectedSessionId ? s.sessionId === parseInt(selectedSessionId) : true;
+      return matchDay && matchSession;
+    });
+    const slots = [];
+    daySessions.forEach(session => {
+       let start = new Date(`1970-01-01T${session.startTime}:00`);
+       let end = new Date(`1970-01-01T${session.endTime}:00`);
+       while(start < end) {
+         let timeString = start.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' });
+         if (!slots.includes(timeString)) slots.push(timeString);
+         start.setMinutes(start.getMinutes() + 30);
+       }
+    });
+    
+    slots.sort((a, b) => new Date(`1970-01-01 ${a}`) - new Date(`1970-01-01 ${b}`));
+    setAvailableTimeSlots(slots);
+    
+    if (slots.length > 0) {
+      setSelectedTimeSlot(slots[0]);
+    } else {
+      setSelectedTimeSlot('');
+    }
+  }, [selectedDate, selectedDoctor, dateOptions]);
+
+  const timeSlotsRow1 = availableTimeSlots.slice(0, Math.ceil(availableTimeSlots.length / 2));
+  const timeSlotsRow2 = availableTimeSlots.slice(Math.ceil(availableTimeSlots.length / 2));
 
   // Filter logic
-  const filteredDoctors = allDoctors.filter(doc => {
+  const filteredDoctors = hasSearched ? displayedDoctors.filter(doc => {
+    const matchesLocation = !selectedLocation || doc.location.includes(selectedLocation);
+    return matchesLocation;
+  }) : allDoctors.filter(doc => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch = !q ||
       doc.name.toLowerCase().includes(q) ||
@@ -201,10 +455,52 @@ export default function BookAppointment({ defaultView = 'listing' }) {
     return matchesSearch && matchesSpecialty && matchesLocation;
   });
 
-  const handleSelectDoctorForBooking = (doc) => {
+  const handleSelectDoctorForBooking = async (doc) => {
     setSelectedDoctor(doc);
     setViewMode('details');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsDoctorDetailsLoading(true);
+
+    try {
+      const rawId = doc.id.toString().replace('doc-', '');
+      const url = `${ENDPOINTS.APPOINTMENTS.DOCTOR_DETAIL}?doctorId=${rawId}`;
+      const res = await apiService.get(url);
+      
+      if (res && res.status === 200 && res.response) {
+        const details = res.response;
+        const basicInfo = details.basicInfo || {};
+        
+        const enhancedDoc = {
+          ...doc,
+          name: basicInfo.doctorName || doc.name,
+          fee: basicInfo.consultancyFee !== null && basicInfo.consultancyFee !== undefined ? basicInfo.consultancyFee : doc.fee,
+          experience: basicInfo.yearsOfExperience ? `${basicInfo.yearsOfExperience} Years` : doc.experience,
+          about: basicInfo.profileDescription || doc.about,
+          gender: basicInfo.gender || doc.gender,
+          education: details.education && details.education.length > 0 ? details.education : doc.education,
+          memberships: details.memberships && details.memberships.length > 0 ? details.memberships : doc.memberships,
+          expertise: details.specialtyInterests && details.specialtyInterests.length > 0 ? details.specialtyInterests : doc.expertise,
+          languages: details.languages && details.languages.length > 0 ? details.languages : doc.languages,
+          sessions: details.sessionResponseList || [],
+          specialty: details.specialitiesResponseList?.map(s => s.specialityName).join(', ') || doc.specialty,
+        };
+        
+        setSelectedDoctor(enhancedDoc);
+        
+        const options = generateDateOptions(details.sessionResponseList);
+        setDateOptions(options);
+        if (options.length > 0) {
+          setSelectedDate(options[0].full);
+        } else {
+          setSelectedDate('');
+          setAvailableTimeSlots([]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch doctor details:", err);
+    } finally {
+      setIsDoctorDetailsLoading(false);
+    }
   };
 
   const handleOpenPayment = (paymentType) => {
@@ -250,11 +546,21 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     onChange={(e) => setSelectedSpecialty(e.target.value)}
                   >
                     <option value="">All Specialties</option>
-                    <option value="ENT Specialist">ENT Specialist</option>
-                    <option value="Cardiologist">Cardiologist</option>
-                    <option value="Dermatologist">Dermatologist</option>
-                    <option value="General Physician">General Physician</option>
-                    <option value="Orthopedic">Orthopedic</option>
+                    {specialtiesList.length > 0 ? (
+                      specialtiesList.map(spec => (
+                        <option key={spec.specialityId} value={spec.specialityId}>
+                          {spec.specialityName}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="ENT Specialist">ENT Specialist</option>
+                        <option value="Cardiologist">Cardiologist</option>
+                        <option value="Dermatologist">Dermatologist</option>
+                        <option value="General Physician">General Physician</option>
+                        <option value="Orthopedic">Orthopedic</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -267,11 +573,11 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     onChange={(e) => setSelectedLocation(e.target.value)}
                   >
                     <option value="">All Locations</option>
-                    <option value="Noida">Noida</option>
-                    <option value="ARI Hospital, Delhi">ARI Hospital, Delhi</option>
-                    <option value="Skin Care Clinic, Mumbai">Skin Care Clinic, Mumbai</option>
-                    <option value="City Hospital, Delhi">City Hospital, Delhi</option>
-                    <option value="Health Care Center, Noida">Health Care Center, Noida</option>
+                    {locationsList.map(loc => (
+                      <option key={loc.id} value={loc.hospitalName}>
+                        {loc.hospitalName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -279,9 +585,10 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 <button
                   type="button"
                   className="btn-search-doctors"
-                  onClick={() => {}}
+                  onClick={handleSearchButtonClick}
+                  disabled={isSearching}
                 >
-                  Search
+                  {isSearching ? 'Searching...' : 'Search'}
                 </button>
 
                 {/* Clear filters if any filter is active */}
@@ -423,11 +730,21 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       onChange={(e) => setSelectedSpecialty(e.target.value)}
                     >
                       <option value="">All Specialties</option>
-                      <option value="ENT Specialist">ENT Specialist</option>
-                      <option value="Cardiologist">Cardiologist</option>
-                      <option value="Dermatologist">Dermatologist</option>
-                      <option value="General Physician">General Physician</option>
-                      <option value="Orthopedic">Orthopedic</option>
+                      {specialtiesList.length > 0 ? (
+                        specialtiesList.map(spec => (
+                          <option key={spec.specialityId} value={spec.specialityId}>
+                            {spec.specialityName}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="ENT Specialist">ENT Specialist</option>
+                          <option value="Cardiologist">Cardiologist</option>
+                          <option value="Dermatologist">Dermatologist</option>
+                          <option value="General Physician">General Physician</option>
+                          <option value="Orthopedic">Orthopedic</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -440,11 +757,11 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       onChange={(e) => setSelectedLocation(e.target.value)}
                     >
                       <option value="">All Locations</option>
-                      <option value="Noida">Noida</option>
-                      <option value="ARI Hospital, Delhi">ARI Hospital, Delhi</option>
-                      <option value="Skin Care Clinic, Mumbai">Skin Care Clinic, Mumbai</option>
-                      <option value="City Hospital, Delhi">City Hospital, Delhi</option>
-                      <option value="Health Care Center, Noida">Health Care Center, Noida</option>
+                      {locationsList.map(loc => (
+                        <option key={loc.id} value={loc.hospitalName}>
+                          {loc.hospitalName}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -453,11 +770,13 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     type="button"
                     className="btn-search-doctors"
                     onClick={() => {
+                      handleSearchButtonClick();
                       setViewMode('listing');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    disabled={isSearching}
                   >
-                    Search
+                    {isSearching ? 'Searching...' : 'Search'}
                   </button>
 
                   {/* Clear filters if any filter is active */}
@@ -671,6 +990,24 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         </button>
                       </div>
 
+                      {/* Session Dropdown */}
+                      <div className="mb-3">
+                        <label className="form-label small text-muted mb-1">Select Session</label>
+                        <select
+                          className="form-select border-light-subtle text-dark fw-medium"
+                          value={selectedSessionId}
+                          onChange={(e) => setSelectedSessionId(e.target.value)}
+                          style={{ fontSize: '0.88rem' }}
+                        >
+                          <option value="">All Sessions</option>
+                          {opdSessionsList.map(session => (
+                            <option key={session.id} value={session.id}>
+                              {session.sessionName} ({session.fromTime ? session.fromTime.substring(0, 5) : ''} - {session.endTime ? session.endTime.substring(0, 5) : ''})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Available Time Slots Header */}
                       <div className="small fw-semibold text-dark mb-2">
                         Available Time Slots – {selectedDate} 2026
@@ -678,44 +1015,51 @@ export default function BookAppointment({ defaultView = 'listing' }) {
 
                       {/* Time Slots Grid */}
                       <div className="d-flex flex-wrap gap-2 mb-2">
-                        {timeSlotsRow1.map((slot) => {
-                          const isSelected = selectedTimeSlot === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setSelectedTimeSlot(slot)}
-                              className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
-                                isSelected
-                                  ? 'btn-primary text-white fw-bold shadow-sm'
-                                  : 'btn-outline-primary'
-                              }`}
-                              style={{ fontSize: '0.8rem' }}
-                            >
-                              {slot}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="d-flex flex-wrap gap-2 mb-3">
-                        {timeSlotsRow2.map((slot) => {
-                          const isSelected = selectedTimeSlot === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setSelectedTimeSlot(slot)}
-                              className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
-                                isSelected
-                                  ? 'btn-primary text-white fw-bold shadow-sm'
-                                  : 'btn-outline-primary'
-                              }`}
-                              style={{ fontSize: '0.8rem' }}
-                            >
-                              {slot}
-                            </button>
-                          );
-                        })}
+                        {timeSlotsRow1.length > 0 || timeSlotsRow2.length > 0 ? (
+                          <>
+                            {timeSlotsRow1.map((slot) => {
+                              const isSelected = selectedTimeSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  type="button"
+                                  onClick={() => setSelectedTimeSlot(slot)}
+                                  className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
+                                    isSelected
+                                      ? 'btn-primary text-white fw-bold shadow-sm'
+                                      : 'btn-outline-primary'
+                                  }`}
+                                  style={{ fontSize: '0.8rem' }}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                            {timeSlotsRow2.length > 0 && (
+                              <div className="w-100 m-0"></div> // line break if needed, but flex-wrap handles it
+                            )}
+                            {timeSlotsRow2.map((slot) => {
+                              const isSelected = selectedTimeSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  type="button"
+                                  onClick={() => setSelectedTimeSlot(slot)}
+                                  className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
+                                    isSelected
+                                      ? 'btn-primary text-white fw-bold shadow-sm'
+                                      : 'btn-outline-primary'
+                                  }`}
+                                  style={{ fontSize: '0.8rem' }}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                          </>
+                        ) : (
+                          <div className="text-muted small">No time slots available for this date.</div>
+                        )}
                       </div>
 
                       <hr className="my-3 border-light-subtle" />
@@ -740,13 +1084,18 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                           </span>
                           <select
                             className="form-select border-start-0 text-dark fw-medium"
-                            value={selectedPatient}
-                            onChange={(e) => setSelectedPatient(e.target.value)}
+                            value={selectedPatient ? selectedPatient.id : ''}
+                            onChange={(e) => {
+                              const p = familyMembers.find(f => f.id == e.target.value);
+                              if (p) setSelectedPatient(p);
+                            }}
                             style={{ fontSize: '0.88rem' }}
                           >
-                            <option value="Rahul Verma (Self)">Rahul Verma (Self)</option>
-                            <option value="Pooja Verma (Spouse)">Pooja Verma (Spouse)</option>
-                            <option value="Aarav Verma (Son)">Aarav Verma (Son)</option>
+                            {familyMembers.map(member => (
+                              <option key={member.id} value={member.id}>
+                                {member.name} ({member.relation})
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -755,15 +1104,15 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       <div className="row g-2 py-2 border-bottom border-light-subtle mb-3 text-secondary small">
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient Name</span>
-                          <strong className="text-dark">Rahul Verma</strong>
+                          <strong className="text-dark">{selectedPatient ? selectedPatient.name : 'N/A'}</strong>
                         </div>
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Age / Gender</span>
-                          <strong className="text-dark">34 Years / Male</strong>
+                          <strong className="text-dark">{selectedPatient ? `${selectedPatient.age} / ${selectedPatient.gender}` : 'N/A'}</strong>
                         </div>
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Mobile Number</span>
-                          <strong className="text-dark">+91 98102 34567</strong>
+                          <strong className="text-dark">{selectedPatient ? selectedPatient.mobileNo : 'N/A'}</strong>
                         </div>
                       </div>
 
@@ -804,8 +1153,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                             <div className="d-flex align-items-center gap-2">
                               <i className="fa-regular fa-user text-primary"></i>
                               <div>
-                                <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient</span>
-                                <strong className="text-dark">{selectedPatient}</strong>
+                                <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient Name</span>
+                                <strong className="text-dark">{selectedPatient ? selectedPatient.name : 'N/A'}</strong>
                               </div>
                             </div>
                           </div>
@@ -890,8 +1239,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     <span className="text-dark">{selectedDoctor.name} ({selectedDoctor.specialty})</span>
                   </div>
                   <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
-                    <span className="text-muted">Patient:</span>
-                    <span className="text-dark">{selectedPatient}</span>
+                    <span className="text-muted">Patient Name</span>
+                    <span className="text-dark">{selectedPatient ? selectedPatient.name : 'N/A'}</span>
                   </div>
                   <div className="d-flex justify-content-between py-1">
                     <span className="text-muted">Payment Mode:</span>

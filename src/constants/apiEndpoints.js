@@ -20,6 +20,7 @@ export const ENDPOINTS = {
     GET_ALL_HOSPITALS: '/master/hospitalResponse/getAll/1',
     CANCEL_REASON_MASTER: '/master/cancel-payment-reason/1',
     PAYMENT_GATEWAY: '/master/paymentGateway/getAll/1',
+    GET_OPD_SESSIONS: '/master/opd-session/getAll/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
@@ -30,6 +31,9 @@ export const ENDPOINTS = {
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
     RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
     CANCEL_APPOINTMENT: '/registration/cancelAppointment',
+    SEARCH_DOCTOR: '/mobileController/searchBySpecialityAndDoctor',
+    DOCTORS_BY_SPECIALTY: '/mobileController/getAllDoctorBySpecialityWise',
+    DOCTOR_DETAIL: '/mobileController/getDoctorDetailById',
   },
   // USERS: {
   //   PROFILE: '/users/profile',
