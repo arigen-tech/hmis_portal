@@ -14,7 +14,12 @@
 /* --------------------------------------------------------
    1. Bootstrap CSS Variable Overrides
    -------------------------------------------------------- */
+html {
+  font-size: 14px;
+}
+
 :root {
+  --bs-root-font-size: 14px;
   --bs-primary:       var(--primary-color);
   --bs-primary-rgb:   46, 91, 255;
   --bs-secondary:     var(--secondary-color);

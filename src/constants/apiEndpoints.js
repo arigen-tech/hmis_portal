@@ -39,6 +39,7 @@ export const ENDPOINTS = {
     REFUND_DETAILS: '/billing/refundDetails',
     REFUND: '/api/payments/refund',
     PROCESS_LAB_PAYMENT: '/billing/processLabPayment',
+    PROCESS_RADIOLOGY_PAYMENT: '/billing/processRadiologyPayment',
   },
   PAYMENTS: {
     RAZORPAY_PREFILL: '/api/payments/razorpay-prefill',
