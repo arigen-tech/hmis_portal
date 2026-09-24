@@ -117,23 +117,45 @@ export default function Navbar() {
     }, 600);
   };
 
-  const handleSelectPatient = (patient) => {
-    setActivePatientId(patient.id);
-    
-    if (patient.originalData) {
-      setPatientData(patient.originalData);
-      localStorage.setItem('patientDetails', JSON.stringify(patient.originalData));
-      // Dispatch event in case components want to listen without reloading
-      window.dispatchEvent(new Event('patientSwitched'));
-    }
-    
-    showToast(`Switched to ${patient.name}`);
-    setShowProfileMenu(false);
+  const handleSelectPatient = async (patient) => {
+    try {
+      const activeData = localStorage.getItem('patientDetails');
+      let mobileNumber = '';
+      if (activeData) {
+        const parsed = JSON.parse(activeData);
+        mobileNumber = parsed.patientPhoneNumber || parsed.mobileNo || '';
+      }
 
-    // Reload the page to ensure all components fetch data for the new patient
-    setTimeout(() => {
-      window.location.reload();
-    }, 600);
+      const response = await apiService.post(`${ENDPOINTS.AUTH.SWITCH_PATIENT}?patientId=${patient.id}&mobileNumber=${mobileNumber}`, '');
+
+      if (response.status === 200 && response.response) {
+        const data = response.response;
+        if (data.token) localStorage.setItem('token', data.token);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+
+        let newPatientDetails = patient.originalData;
+        if (data.patientIdResponseList && data.patientIdResponseList.length > 0) {
+          newPatientDetails = data.patientIdResponseList[0];
+        }
+
+        setActivePatientId(patient.id);
+        setPatientData(newPatientDetails);
+        localStorage.setItem('patientDetails', JSON.stringify(newPatientDetails));
+        
+        window.dispatchEvent(new Event('patientSwitched'));
+        showToast(`Switched to ${newPatientDetails.patientName || patient.name}`);
+        setShowProfileMenu(false);
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 600);
+      } else {
+        showToast(response.message || 'Failed to switch patient');
+      }
+    } catch (error) {
+      console.error("Failed to switch patient:", error);
+      showToast('Error switching patient');
+    }
   };
 
   const getInitials = (name) => {
