@@ -20,6 +20,7 @@ export const ENDPOINTS = {
     GET_ALL_HOSPITALS: '/master/hospitalResponse/getAll/1',
     CANCEL_REASON_MASTER: '/master/cancel-payment-reason/1',
     PAYMENT_GATEWAY: '/master/paymentGateway/getAll/1',
+    GET_OPD_SESSIONS: '/master/opd-session/getAll/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
@@ -30,6 +31,11 @@ export const ENDPOINTS = {
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
     RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
     CANCEL_APPOINTMENT: '/registration/cancelAppointment',
+    SEARCH_DOCTOR: '/mobileController/searchBySpecialityAndDoctor',
+    DOCTORS_BY_SPECIALTY: '/mobileController/getAllDoctorBySpecialityWise',
+    DOCTOR_DETAIL: '/mobileController/getDoctorDetailById',
+    GET_APPOINTMENT_SLOTS: '/registration/getAppointmentSlots/1',
+    UPDATE_PATIENT: '/registration/updatePatient',
   },
   // USERS: {
   //   PROFILE: '/users/profile',
@@ -40,6 +46,8 @@ export const ENDPOINTS = {
     REFUND: '/api/payments/refund',
     PROCESS_LAB_PAYMENT: '/billing/processLabPayment',
     PROCESS_RADIOLOGY_PAYMENT: '/billing/processRadiologyPayment',
+    OPD_PATIENT_BILL_DETAILS: '/billing/OPDPatientBillDetails',
+    PROCESS_OPD_PAYMENT: '/billing/processOpdPayment',
   },
   PAYMENTS: {
     RAZORPAY_PREFILL: '/api/payments/razorpay-prefill',

@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
+import { ENDPOINTS } from '../constants/apiEndpoints';
+import AlertNotification from '../components/AlertNotification';
+import { loadRazorpayScript } from '../utils/loadRazorpay';
 
 export default function BookAppointment({ defaultView = 'listing' }) {
   const navigate = useNavigate();
@@ -7,213 +11,613 @@ export default function BookAppointment({ defaultView = 'listing' }) {
   // View mode: 'listing' (Find a Doctor + Doctors list) or 'details' (Book OPD Consultation page)
   const [viewMode, setViewMode] = useState(defaultView);
 
-  // Doctors Database
-  const allDoctors = [
-    {
-      id: 'doc-101',
-      name: 'Dr. Rajeshwar Singhal',
-      specialty: 'ENT Specialist',
-      degrees: 'MBBS, MS (Otorhinolaryngology), DNB',
-      location: 'Health Care Center, Noida',
-      rating: 4.9,
-      fee: 1100,
-      avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400&h=400',
-      gender: 'male',
-      experience: '15 Years Experience',
-      about: 'Dr. Rajeshwar Singhal is a distinguished Otorhinolaryngologist specializing in advanced endoscopic sinus surgery, micro-ear reconstruction, pediatric airway issues, and allergy-induced breathing disorders.',
-      expertise: [
-        'Endoscopic Sinus Surgery (FESS)',
-        'Micro-Ear Surgery & Tympanoplasty',
-        'Snoring & Sleep Apnea Care',
-        'Allergy & Rhinitis Management'
-      ],
-      education: [
-        'MBBS – Christian Medical College (CMC), Vellore',
-        'MS (ENT) – Post Graduate Institute of Medical Education (PGIMER), Chandigarh',
-        'Fellowship in Advanced Rhinology – University of Zurich'
-      ],
-      memberships: [
-        'Association of Otolaryngologists of India (AOI)',
-        'Indian Academy of Otolaryngology Head & Neck Surgery',
-        'European Rhinologic Society'
-      ],
-      languages: ['English', 'Hindi']
-    },
-    {
-      id: 'doc-102',
-      name: 'Dr. Ananya Mukherjee',
-      specialty: 'Cardiologist',
-      degrees: 'MBBS, MD (Medicine), DM (Cardiology), FACC',
-      location: 'ARI Hospital, Delhi',
-      rating: 4.9,
-      fee: 1500,
-      avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400&h=400',
-      gender: 'female',
-      experience: '18 Years Experience',
-      about: 'Dr. Ananya Mukherjee is a renowned senior interventional cardiologist with deep expertise in non-invasive clinical cardiology, transradial angioplasty, heart failure therapies, and advanced 3D echocardiography.',
-      expertise: [
-        'Coronary Angioplasty & Stenting',
-        'Valvular Heart Disease Treatment',
-        'Refractory Hypertension Management',
-        'Preventive Cardiovascular Care'
-      ],
-      education: [
-        'MBBS – Maulana Azad Medical College (MAMC), New Delhi',
-        'MD (Medicine) – Lady Hardinge Medical College, New Delhi',
-        'DM (Cardiology) – AIIMS, New Delhi'
-      ],
-      memberships: [
-        'Fellow of the American College of Cardiology (FACC)',
-        'Cardiological Society of India (CSI)',
-        'Indian College of Cardiology'
-      ],
-      languages: ['English', 'Hindi', 'Bengali']
-    },
-    {
-      id: 'doc-103',
-      name: 'Dr. Vikramaditya Rathore',
-      specialty: 'Dermatologist',
-      degrees: 'MBBS, MD (Dermatology, Venereology & Leprosy)',
-      location: 'Skin Care Clinic, Mumbai',
-      rating: 4.8,
-      fee: 950,
-      avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=400&h=400',
-      gender: 'male',
-      experience: '11 Years Experience',
-      about: 'Dr. Vikramaditya Rathore is an expert consultant dermatologist specializing in clinical dermatology, targeted laser procedures, PRP hair restoration therapy, and biologics for chronic autoimmune skin conditions.',
-      expertise: [
-        'Clinical Dermatology & Eczema',
-        'Laser Skin Resurfacing',
-        'PRP Hair Restoration Therapy',
-        'Pigmentation & Severe Acne Protocols'
-      ],
-      education: [
-        'MBBS – Grant Government Medical College & Sir JJ Group of Hospitals, Mumbai',
-        'MD (DVL) – King Edward Memorial (KEM) Hospital, Mumbai'
-      ],
-      memberships: [
-        'Indian Association of Dermatologists, Venereologists and Leprologists (IADVL)',
-        'Cosmetic Dermatology Society of India (CDSI)'
-      ],
-      languages: ['English', 'Hindi', 'Marathi']
-    },
-    {
-      id: 'doc-104',
-      name: 'Dr. Meenakshi Sundaram',
-      specialty: 'General Physician',
-      degrees: 'MBBS, MD (General Medicine), Dip. Diabetology',
-      location: 'Noida',
-      rating: 4.8,
-      fee: 650,
-      avatar: 'https://images.unsplash.com/photo-1594824813686-25f0e1f7c1d7?auto=format&fit=crop&q=80&w=400&h=400',
-      gender: 'female',
-      experience: '14 Years Experience',
-      about: 'Dr. Meenakshi Sundaram is an accomplished physician focused on comprehensive adult medicine, diabetes reversal protocols, chronic lifestyle disorders, and infectious disease management.',
-      expertise: [
-        'Type 2 Diabetes & Insulin Therapy',
-        'Hypertension & Lipid Disorders',
-        'Thyroid Disorder Management',
-        'Infectious Diseases & Fever Protocols'
-      ],
-      education: [
-        'MBBS – Madras Medical College, Chennai',
-        'MD (General Medicine) – JIPMER, Puducherry',
-        'Diploma in Diabetology – Royal College of Physicians, UK'
-      ],
-      memberships: [
-        'Association of Physicians of India (API)',
-        'Research Society for the Study of Diabetes in India (RSSDI)',
-        'Indian Medical Association (IMA)'
-      ],
-      languages: ['English', 'Hindi', 'Tamil']
-    },
-    {
-      id: 'doc-105',
-      name: 'Dr. Harpreet Singh Anand',
-      specialty: 'Orthopedic',
-      degrees: 'MBBS, MS (Orthopaedics), MCh (Ortho, UK)',
-      location: 'City Hospital, Delhi',
-      rating: 4.9,
-      fee: 1250,
-      avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400&h=400',
-      gender: 'male',
-      experience: '20 Years Experience',
-      about: 'Dr. Harpreet Singh Anand is a senior orthopedic surgeon internationally recognized for robotic total joint replacements, arthroscopic sports surgeries, and spinal reconstructive procedures.',
-      expertise: [
-        'Robotic Knee & Hip Arthroplasty',
-        'Arthroscopic ACL & Meniscus Repair',
-        'Cervical & Lumbar Spine Disorders',
-        'Complex Traumatic Fracture Fixation'
-      ],
-      education: [
-        'MBBS – Government Medical College, Amritsar',
-        'MS (Orthopedics) – AIIMS, New Delhi',
-        'MCh (Orthopaedics) – University of Dundee, UK'
-      ],
-      memberships: [
-        'Indian Orthopaedic Association (IOA)',
-        'International Society of Arthroscopy, Knee Surgery and Orthopaedic Sports Medicine (ISAKOS)',
-        'Delhi Orthopaedic Association (DOA)'
-      ],
-      languages: ['English', 'Hindi', 'Punjabi']
-    }
-  ];
-
   // Currently selected doctor for detailed booking
-  const [selectedDoctor, setSelectedDoctor] = useState(allDoctors[0]);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   // Find a Doctor Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
 
+  const [displayedDoctors, setDisplayedDoctors] = useState([]);
+  const [specialtiesList, setSpecialtiesList] = useState([]);
+  const [locationsList, setLocationsList] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [opdSessionsList, setOpdSessionsList] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await apiService.get(ENDPOINTS.MASTER.GET_ALL_HOSPITALS);
+        if (res && res.status === 200 && res.response) {
+          setLocationsList(res.response);
+        }
+      } catch (err) {
+        console.error("Failed to fetch locations:", err);
+      }
+    };
+    fetchLocations();
+    
+    // Fetch patient info from local storage
+    const activeData = localStorage.getItem('patientDetails');
+    const listData = localStorage.getItem('patientList');
+    
+    let parsedActive = null;
+    let mappedPatients = [];
+
+    if (activeData) {
+      try {
+        parsedActive = JSON.parse(activeData);
+      } catch (e) {
+        console.error("Failed to parse active patient data", e);
+      }
+    }
+
+    if (listData) {
+      try {
+        const parsedList = JSON.parse(listData);
+        mappedPatients = parsedList.map(p => ({
+          id: p.patientId,
+          name: p.patientName,
+          relation: p.relation || 'Self',
+          gender: p.gender || 'N/A',
+          age: p.age || 'N/A',
+          mobileNo: p.mobileNo || parsedActive?.mobileNo || 'N/A'
+        }));
+      } catch (e) {
+        console.error("Failed to parse patient list data", e);
+      }
+    } else if (parsedActive) {
+      mappedPatients = [{
+        id: parsedActive.patientId,
+        name: parsedActive.patientName || 'User',
+        relation: parsedActive.relation || 'Self',
+        gender: parsedActive.gender || 'N/A',
+        age: parsedActive.age || 'N/A',
+        mobileNo: parsedActive.mobileNo || 'N/A'
+      }];
+    }
+    
+    setFamilyMembers(mappedPatients);
+    if (parsedActive && mappedPatients.length > 0) {
+      const current = mappedPatients.find(p => p.id === (parsedActive.patientId || parsedActive.id)) || mappedPatients[0];
+      setSelectedPatient(current);
+    } else if (mappedPatients.length > 0) {
+      setSelectedPatient(mappedPatients[0]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'details') {
+      const fetchOpdSessions = async () => {
+        try {
+          const res = await apiService.get(ENDPOINTS.MASTER.GET_OPD_SESSIONS);
+          if (res && res.status === 200 && res.response) {
+            setOpdSessionsList(res.response);
+          }
+        } catch (err) {
+          console.error("Failed to fetch OPD sessions:", err);
+        }
+      };
+      fetchOpdSessions();
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    const fetchDoctorsAndSpecialties = async () => {
+      setIsSearching(true);
+      setHasSearched(true);
+      try {
+        const hospitalStr = localStorage.getItem('selectedHospital');
+        let hospitalId = 12;
+        if (hospitalStr) {
+          try {
+            const parsed = JSON.parse(hospitalStr);
+            if (parsed && parsed.id) hospitalId = parsed.id;
+          } catch(e) {}
+        }
+
+        const url = `${ENDPOINTS.APPOINTMENTS.SEARCH_DOCTOR}?search=${encodeURIComponent(searchQuery)}&hospitalId=${hospitalId}`;
+        const res = await apiService.get(url);
+        
+        if (res && res.status === 200 && res.response && res.response.length > 0) {
+          const responseData = res.response[0];
+          const doctorsData = responseData.doctorResponseList || [];
+          const specialitiesData = responseData.specialitiesResponseList || [];
+          
+          const mappedDoctors = doctorsData.map((doc) => ({
+            id: `doc-${doc.doctorId}`,
+            name: doc.doctorName,
+            specialty: 'Specialist',
+            degrees: '', 
+            location: doc.hospitalName,
+            rating: 4.5,
+            fee: doc.consultancyFee || 0,
+            avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
+            gender: 'unknown',
+            experience: doc.yearOfExperience || 'N/A',
+            about: '',
+            expertise: [],
+            education: [],
+            memberships: [],
+            languages: ['English', 'Hindi'],
+            sessions: doc.sessionResponseLists || []
+          }));
+          
+          setDisplayedDoctors(mappedDoctors);
+          setSpecialtiesList(specialitiesData);
+        } else {
+          setDisplayedDoctors([]);
+          setSpecialtiesList([]);
+        }
+      } catch (err) {
+        console.error("Search failed:", err);
+        setDisplayedDoctors([]);
+        setSpecialtiesList([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchDoctorsAndSpecialties();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const fetchDoctorsBySpecialty = async () => {
+      if (!selectedSpecialty) return;
+      setIsSearching(true);
+      setHasSearched(true);
+      try {
+        const url = `${ENDPOINTS.APPOINTMENTS.DOCTORS_BY_SPECIALTY}?specialityId=${selectedSpecialty}`;
+        const res = await apiService.get(url);
+        
+        if (res && res.status === 200 && res.response && res.response.length > 0) {
+          const responseData = res.response[0];
+          const doctorsData = responseData.doctorResponseListList || [];
+          
+          const mappedDoctors = doctorsData.map((doc) => ({
+            id: `doc-${doc.doctorId}`,
+            name: doc.doctorName,
+            specialty: doc.specialityName || 'Specialist',
+            degrees: '', 
+            location: responseData.hospitalName || 'Hospital',
+            rating: 4.5,
+            fee: doc.consultancyFee || 0,
+            avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
+            gender: doc.gender || 'unknown',
+            experience: doc.yearsOfExperience ? `${doc.yearsOfExperience} years` : 'N/A',
+            about: '',
+            expertise: [],
+            education: [],
+            memberships: [],
+            languages: ['English', 'Hindi'],
+            sessions: doc.sessionResponseLists || []
+          }));
+          
+          setDisplayedDoctors(mappedDoctors);
+        } else {
+          setDisplayedDoctors([]);
+        }
+      } catch (err) {
+        console.error("Specialty search failed:", err);
+        setDisplayedDoctors([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    fetchDoctorsBySpecialty();
+  }, [selectedSpecialty]);
+
+  const handleSearchButtonClick = () => {
+    // This will hit a different API based on user's future requirement
+    console.log("Search button clicked - placeholder for different API");
+  };
+
   // Booking details state
-  const [selectedDate, setSelectedDate] = useState('Tue, 16 Sep');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('10:30 AM');
-  const [selectedPatient, setSelectedPatient] = useState('Rahul Verma (Self)');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmedPaymentType, setConfirmedPaymentType] = useState('Pay Now');
 
-  // Date carousel items for OPD consultation
-  const dateOptions = [
-    { day: 'Tue', date: '16 Sep', full: 'Tue, 16 Sep' },
-    { day: 'Wed', date: '17 Sep', full: 'Wed, 17 Sep' },
-    { day: 'Thu', date: '18 Sep', full: 'Thu, 18 Sep' },
-    { day: 'Fri', date: '19 Sep', full: 'Fri, 19 Sep' },
-    { day: 'Sat', date: '20 Sep', full: 'Sat, 20 Sep' },
-    { day: 'Sun', date: '21 Sep', full: 'Sun, 21 Sep' },
-    { day: 'Mon', date: '22 Sep', full: 'Mon, 22 Sep' }
-  ];
+  const [dateOptions, setDateOptions] = useState([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  const [rawTimeSlots, setRawTimeSlots] = useState([]);
+  const [isDoctorDetailsLoading, setIsDoctorDetailsLoading] = useState(false);
+  const [isBookingPayment, setIsBookingPayment] = useState(false);
+  const [bookedDetails, setBookedDetails] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [alert, setAlert] = useState(null);
 
-  // Time slots matching the design
-  const timeSlotsRow1 = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM'];
-  const timeSlotsRow2 = ['11:30 AM', '12:00 PM', '12:30 PM', '01:00 PM'];
+  const generateDateOptions = (sessions) => {
+    if (!sessions || sessions.length === 0) return [];
+    const availableDays = [...new Set(sessions.map(s => s.day))];
+    const options = [];
+    let date = new Date();
+    let daysAdded = 0;
+    while(options.length < 14 && daysAdded < 30) {
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      if (availableDays.includes(dayName)) {
+        const shortDay = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
+        const dateNum = date.getDate();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        options.push({
+          day: shortDay,
+          date: `${dateNum} ${monthStr}`,
+          full: `${shortDay}, ${dateNum} ${monthStr}`,
+          dayName: dayName,
+          apiDate: `${year}-${month}-${day}`
+        });
+      }
+      date.setDate(date.getDate() + 1);
+      daysAdded++;
+    }
+    return options;
+  };
+
+  useEffect(() => {
+    const fetchAvailableSlots = async () => {
+      if (!selectedDoctor || !selectedDate || !selectedSessionId) {
+        setAvailableTimeSlots([]);
+        return;
+      }
+      
+      const selectedOption = dateOptions.find(d => d.full === selectedDate);
+      if (!selectedOption) return;
+      
+      try {
+        const rawDoctorId = selectedDoctor.id.toString().replace('doc-', '');
+        const deptId = selectedSpecialty || selectedDoctor.departmentId; 
+        
+        const url = `${ENDPOINTS.APPOINTMENTS.GET_APPOINTMENT_SLOTS}?deptId=${deptId}&doctorId=${rawDoctorId}&appointmentDate=${selectedOption.apiDate}&sessionId=${selectedSessionId}`;
+        const res = await apiService.get(url);
+        
+        if (res && res.status === 200 && res.response) {
+          const availableSlots = res.response.filter(slot => slot.available);
+          setRawTimeSlots(availableSlots);
+          const slots = availableSlots.map(slot => {
+              let start = new Date(`1970-01-01T${slot.startTime}`);
+              return start.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' });
+            });
+          
+          setAvailableTimeSlots(slots);
+          if (slots.length > 0) {
+            setSelectedTimeSlot(slots[0]);
+          } else {
+            setSelectedTimeSlot('');
+          }
+        } else {
+          setAvailableTimeSlots([]);
+          setRawTimeSlots([]);
+          setSelectedTimeSlot('');
+        }
+      } catch (err) {
+        console.error("Failed to fetch slots:", err);
+        setAvailableTimeSlots([]);
+        setRawTimeSlots([]);
+        setSelectedTimeSlot('');
+      }
+    };
+
+    fetchAvailableSlots();
+  }, [selectedDate, selectedDoctor, dateOptions, selectedSessionId, selectedSpecialty]);
+
+  const timeSlotsRow1 = availableTimeSlots.slice(0, Math.ceil(availableTimeSlots.length / 2));
+  const timeSlotsRow2 = availableTimeSlots.slice(Math.ceil(availableTimeSlots.length / 2));
 
   // Filter logic
-  const filteredDoctors = allDoctors.filter(doc => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q ||
-      doc.name.toLowerCase().includes(q) ||
-      doc.specialty.toLowerCase().includes(q) ||
-      doc.location.toLowerCase().includes(q);
-    const matchesSpecialty = !selectedSpecialty || doc.specialty === selectedSpecialty;
-    const matchesLocation = !selectedLocation || doc.location.includes(selectedLocation);
-    return matchesSearch && matchesSpecialty && matchesLocation;
-  });
+  const filteredDoctors = displayedDoctors.filter((doc) => {
+  const q = searchQuery.toLowerCase().trim();
 
-  const handleSelectDoctorForBooking = (doc) => {
+  const matchesSearch =
+    !q ||
+    doc.name?.toLowerCase().includes(q) ||
+    doc.specialty?.toLowerCase().includes(q) ||
+    doc.location?.toLowerCase().includes(q);
+
+  const matchesLocation =
+    !selectedLocation ||
+    doc.location?.includes(selectedLocation);
+
+  return matchesSearch && matchesLocation;
+});
+
+  const handleSelectDoctorForBooking = async (doc) => {
     setSelectedDoctor(doc);
     setViewMode('details');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsDoctorDetailsLoading(true);
+
+    try {
+      const rawId = doc.id.toString().replace('doc-', '');
+      const url = `${ENDPOINTS.APPOINTMENTS.DOCTOR_DETAIL}?doctorId=${rawId}`;
+      const res = await apiService.get(url);
+      
+      if (res && res.status === 200 && res.response) {
+        const details = res.response;
+        const basicInfo = details.basicInfo || {};
+        
+        const enhancedDoc = {
+          ...doc,
+          name: basicInfo.doctorName || doc.name,
+          fee: basicInfo.consultancyFee !== null && basicInfo.consultancyFee !== undefined ? basicInfo.consultancyFee : doc.fee,
+          experience: basicInfo.yearsOfExperience ? `${basicInfo.yearsOfExperience} Years` : doc.experience,
+          about: basicInfo.profileDescription || doc.about,
+          gender: basicInfo.gender || doc.gender,
+          education: details.education && details.education.length > 0 ? details.education : doc.education,
+          memberships: details.memberships && details.memberships.length > 0 ? details.memberships : doc.memberships,
+          expertise: details.specialtyInterests && details.specialtyInterests.length > 0 ? details.specialtyInterests : doc.expertise,
+          languages: details.languages && details.languages.length > 0 ? details.languages : doc.languages,
+          sessions: details.sessionResponseList || [],
+          specialty: details.specialitiesResponseList?.map(s => s.specialityName).join(', ') || doc.specialty,
+          departmentId: details.specialitiesResponseList?.[0]?.specialityId,
+        };
+        
+        setSelectedDoctor(enhancedDoc);
+        
+        const options = generateDateOptions(details.sessionResponseList);
+        setDateOptions(options);
+        if (options.length > 0) {
+          setSelectedDate(options[0].full);
+        } else {
+          setSelectedDate('');
+          setAvailableTimeSlots([]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch doctor details:", err);
+    } finally {
+      setIsDoctorDetailsLoading(false);
+    }
   };
 
-  const handleOpenPayment = (paymentType) => {
-    setConfirmedPaymentType(paymentType);
-    setShowConfirmationModal(true);
+  const handleOpenPayment = async (paymentType) => {
+    const errors = {};
+    if (!selectedDate) errors.date = true;
+    if (!selectedSessionId) errors.session = true;
+    if (!selectedTimeSlot) errors.timeSlot = true;
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      
+      if (errors.date) {
+        document.getElementById('appointment-date-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (errors.session) {
+        document.getElementById('appointment-session-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (errors.timeSlot) {
+        document.getElementById('appointment-timeslot-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    
+    setValidationErrors({});
+
+    if (paymentType === 'Pay at Hospital' || paymentType === 'Pay Now') {
+      setIsBookingPayment(true);
+      try {
+        const rawDoctorId = selectedDoctor.id.toString().replace('doc-', '');
+        const deptId = selectedSpecialty || selectedDoctor.departmentId || 5;
+        const selectedOption = dateOptions.find(d => d.full === selectedDate);
+        
+        const rawSlot = rawTimeSlots.find(slot => {
+           let start = new Date(`1970-01-01T${slot.startTime}`);
+           let timeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' });
+           return timeStr === selectedTimeSlot;
+        });
+
+        const hospitalStr = localStorage.getItem('selectedHospital');
+        let hospitalId = 12;
+        if (hospitalStr) {
+           try {
+              const parsed = JSON.parse(hospitalStr);
+              if (parsed && parsed.id) hospitalId = parsed.id;
+           } catch(e) {}
+        }
+        
+        const activeData = localStorage.getItem('patientDetails');
+        let lastChgBy = "9080438141";
+        if (activeData) {
+            try {
+               const parsedActive = JSON.parse(activeData);
+               lastChgBy = parsedActive.mobileNo || lastChgBy;
+            } catch(e) {}
+        }
+
+        const payload = {
+          appointmentFlag: true,
+          patientDetails: {
+            patient: null,
+            opdPatientDetail: null,
+            visits: [
+              {
+                id: null,
+                tokenNo: rawSlot ? rawSlot.tokenNo.toString() : "0",
+                tokenStartTime: `${selectedOption?.apiDate}T${rawSlot ? rawSlot.startTime : '00:00:00'}Z`,
+                tokenEndTime: `${selectedOption?.apiDate}T${rawSlot ? rawSlot.endTime : '00:00:00'}Z`,
+                visitDate: `${selectedOption?.apiDate}T00:00:00Z`,
+                departmentId: deptId,
+                doctorId: parseInt(rawDoctorId) || 0,
+                doctorName: selectedDoctor.name,
+                sessionId: parseInt(selectedSessionId) || 0,
+                hospitalId: hospitalId,
+                priority: null,
+                billingStatus: "Pending",
+                patientId: selectedPatient ? selectedPatient.id : null,
+                iniDoctorId: parseInt(rawDoctorId) || 0,
+                visitType: "F",
+                lastChgBy: lastChgBy
+              }
+            ]
+          }
+        };
+
+        const res = await apiService.post(ENDPOINTS.APPOINTMENTS.UPDATE_PATIENT, payload);
+        if (res && res.status === 200) {
+           setBookedDetails(res.response);
+
+           if (paymentType === 'Pay Now') {
+             try {
+               const patientId = res.response?.patient?.id;
+               if (!patientId) throw new Error("Patient ID not found in response.");
+               
+               // Fetch OPD Patient Bill Details
+               const billRes = await apiService.get(`${ENDPOINTS.BILLING.OPD_PATIENT_BILL_DETAILS}/${patientId}`);
+               if (!billRes || !billRes.response || !billRes.response.appointments || billRes.response.appointments.length === 0) {
+                 throw new Error("Billing details not found.");
+               }
+               const billingData = billRes.response.appointments[0];
+               const billHdId = billingData.billingHdId;
+               const amount = billingData.netAmount;
+               
+               // Create Order
+               const createOrderPayload = {
+                 billingItems: [{ billingHdId: billHdId, amount: amount }],
+                 billingType: "OPD_SC",
+                 patientId: patientId
+               };
+               const orderRes = await apiService.post(ENDPOINTS.PAYMENTS.CREATE_ORDER, createOrderPayload);
+               if (!orderRes || !orderRes.orderId) {
+                 throw new Error("Failed to create Razorpay order.");
+               }
+               
+               // Load Razorpay script
+               const isLoaded = await loadRazorpayScript();
+               if (!isLoaded) {
+                 throw new Error("Razorpay SDK failed to load. Are you online?");
+               }
+               
+               // Prefill Data from Bill Details
+               const prefill = {
+                 name: billRes.response.patientName || "",
+                 email: "", // Not provided in bill details
+                 contact: billRes.response.mobileNo || ""
+               };
+               
+               // Open Razorpay
+               const options = {
+                 key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YourTestKeyHere",
+                 amount: orderRes.amount,
+                 currency: orderRes.currency,
+                 name: "ARI Hospital",
+                 description: `Payment for OPD Consultation - ${selectedDoctor.name}`,
+                 order_id: orderRes.orderId,
+                 prefill: prefill,
+                 handler: async function (response) {
+                   try {
+                     setAlert({ type: 'info', message: "Verifying payment..." });
+                     const verifyPayload = {
+                       razorpayOrderId: response.razorpay_order_id,
+                       razorpayPaymentId: response.razorpay_payment_id,
+                       razorpaySignature: response.razorpay_signature
+                     };
+                     const verifyRes = await apiService.post(ENDPOINTS.PAYMENTS.VERIFY, verifyPayload);
+                     
+                     if (verifyRes && verifyRes.status === "success") {
+                        const paymentId = orderRes.paymentIds[0];
+                        let isPaid = false;
+                        for (let i = 0; i < 10; i++) {
+                          try {
+                            const statusRes = await apiService.get(`${ENDPOINTS.PAYMENTS.STATUS}/${paymentId}`);
+                            if (statusRes && statusRes.paymentStatus === "PAID") {
+                              isPaid = true;
+                              break;
+                            }
+                          } catch (e) {}
+                          await new Promise(r => setTimeout(r, 3000));
+                        }
+                        
+                        if (!isPaid) {
+                          setAlert({ type: 'warning', message: "Payment verification timed out. Please check later." });
+                          return;
+                        }
+                        
+                        try {
+                          const processOpdPaymentPayload = {
+                            billingType: "OPD_SC",
+                            billingHeaderIds: [billHdId],
+                            opdBillPayments: [{ billHeaderId: billHdId, netAmount: amount }],
+                            amount: amount,
+                            mode: "online",
+                            isPaymentUpdate: true,
+                            shouldNotCreateNewBilling: true,
+                            useExistingBillingHeader: true,
+                            paymentReferenceNo: response.razorpay_payment_id,
+                            timestamp: new Date().toISOString(),
+                            operationType: "payment_update_only"
+                          };
+                          await apiService.post(ENDPOINTS.BILLING.PROCESS_OPD_PAYMENT, processOpdPaymentPayload);
+                        } catch (err) {
+                          console.error("Failed to process OPD payment in backend", err);
+                        }
+                        
+                        setConfirmedPaymentType('Pay Now');
+                        setShowConfirmationModal(true);
+                        setAlert(null);
+                     } else {
+                        setAlert({ type: 'danger', message: "Payment verification failed." });
+                     }
+                   } catch (err) {
+                     console.error("Verification error:", err);
+                     setAlert({ type: 'danger', message: "Error during payment verification." });
+                   } finally {
+                     setIsBookingPayment(false);
+                   }
+                 },
+                 theme: { color: "#3399cc" }
+               };
+               
+               const rzp = new window.Razorpay(options);
+               rzp.on('payment.failed', function(response) {
+                 console.error("Payment failed", response.error);
+                 setAlert({ type: 'danger', message: response.error.description || "Payment failed" });
+                 setIsBookingPayment(false);
+               });
+               
+               rzp.open();
+             } catch(err) {
+               console.error("Razorpay integration error:", err);
+               setAlert({ type: 'danger', message: err.message || "An error occurred during payment initialization." });
+               setIsBookingPayment(false);
+             }
+           } else {
+             setConfirmedPaymentType(paymentType);
+             setShowConfirmationModal(true);
+             setIsBookingPayment(false);
+           }
+        } else {
+           setAlert({ type: 'danger', message: "Booking failed. Please try again." });
+           setIsBookingPayment(false);
+        }
+      } catch(err) {
+        console.error("Booking error:", err);
+        if (err.status === 409) {
+          setAlert({ type: 'warning', message: err.data?.detail || "Patient already has an appointment with the same doctor on this day." });
+        } else {
+          setAlert({ type: 'danger', message: "An error occurred while booking." });
+        }
+        setIsBookingPayment(false);
+      }
+    } else {
+      setConfirmedPaymentType(paymentType);
+      setShowConfirmationModal(true);
+    }
   };
 
   return (
-    <div className="bg-light flex-grow-1 d-flex flex-column" style={{ backgroundColor: '#f8fafc' }}>
+    <div className="bg-light flex-grow-1 d-flex flex-column" style={{ backgroundColor: '#f8fafc', position: 'relative' }}>
+      <AlertNotification alert={alert} onClose={() => setAlert(null)} />
+      
       {/* VIEW 1: FIND A DOCTOR (LISTING WITH PREVIOUS LEFT FILTER CARD) */}
       {viewMode === 'listing' && (
         <div className="book-appointment-container flex-grow-1 py-4">
@@ -248,13 +652,16 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     className="find-doctor-select"
                     value={selectedSpecialty}
                     onChange={(e) => setSelectedSpecialty(e.target.value)}
+                    disabled={isSearching}
                   >
-                    <option value="">All Specialties</option>
-                    <option value="ENT Specialist">ENT Specialist</option>
-                    <option value="Cardiologist">Cardiologist</option>
-                    <option value="Dermatologist">Dermatologist</option>
-                    <option value="General Physician">General Physician</option>
-                    <option value="Orthopedic">Orthopedic</option>
+                    <option value="">{isSearching ? 'Loading...' : 'All Specialties'}</option>
+                    {specialtiesList.length > 0 && (
+                      specialtiesList.map(spec => (
+                        <option key={spec.specialityId} value={spec.specialityId}>
+                          {spec.specialityName}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
@@ -267,11 +674,11 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     onChange={(e) => setSelectedLocation(e.target.value)}
                   >
                     <option value="">All Locations</option>
-                    <option value="Noida">Noida</option>
-                    <option value="ARI Hospital, Delhi">ARI Hospital, Delhi</option>
-                    <option value="Skin Care Clinic, Mumbai">Skin Care Clinic, Mumbai</option>
-                    <option value="City Hospital, Delhi">City Hospital, Delhi</option>
-                    <option value="Health Care Center, Noida">Health Care Center, Noida</option>
+                    {locationsList.map(loc => (
+                      <option key={loc.id} value={loc.hospitalName}>
+                        {loc.hospitalName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -279,9 +686,10 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 <button
                   type="button"
                   className="btn-search-doctors"
-                  onClick={() => {}}
+                  onClick={handleSearchButtonClick}
+                  disabled={isSearching}
                 >
-                  Search
+                  {isSearching ? 'Searching...' : 'Search'}
                 </button>
 
                 {/* Clear filters if any filter is active */}
@@ -321,7 +729,14 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 </span>
               </div>
 
-              {filteredDoctors.length === 0 ? (
+              {isSearching ? (
+                <div className="card border-0 p-5 text-center bg-white rounded-4">
+                  <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <h5 className="fw-bold text-muted">Searching doctors...</h5>
+                </div>
+              ) : filteredDoctors.length === 0 ? (
                 <div className="card border-0 p-5 text-center bg-white rounded-4">
                   <i className="fas fa-user-md fs-1 text-muted mb-3"></i>
                   <h5 className="fw-bold">No doctors found</h5>
@@ -421,13 +836,16 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       className="find-doctor-select"
                       value={selectedSpecialty}
                       onChange={(e) => setSelectedSpecialty(e.target.value)}
+                      disabled={isSearching}
                     >
-                      <option value="">All Specialties</option>
-                      <option value="ENT Specialist">ENT Specialist</option>
-                      <option value="Cardiologist">Cardiologist</option>
-                      <option value="Dermatologist">Dermatologist</option>
-                      <option value="General Physician">General Physician</option>
-                      <option value="Orthopedic">Orthopedic</option>
+                      <option value="">{isSearching ? 'Loading...' : 'All Specialties'}</option>
+                      {specialtiesList.length > 0 && (
+                        specialtiesList.map(spec => (
+                          <option key={spec.specialityId} value={spec.specialityId}>
+                            {spec.specialityName}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 
@@ -440,11 +858,11 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       onChange={(e) => setSelectedLocation(e.target.value)}
                     >
                       <option value="">All Locations</option>
-                      <option value="Noida">Noida</option>
-                      <option value="ARI Hospital, Delhi">ARI Hospital, Delhi</option>
-                      <option value="Skin Care Clinic, Mumbai">Skin Care Clinic, Mumbai</option>
-                      <option value="City Hospital, Delhi">City Hospital, Delhi</option>
-                      <option value="Health Care Center, Noida">Health Care Center, Noida</option>
+                      {locationsList.map(loc => (
+                        <option key={loc.id} value={loc.hospitalName}>
+                          {loc.hospitalName}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -453,11 +871,13 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     type="button"
                     className="btn-search-doctors"
                     onClick={() => {
+                      handleSearchButtonClick();
                       setViewMode('listing');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    disabled={isSearching}
                   >
-                    Search
+                    {isSearching ? 'Searching...' : 'Search'}
                   </button>
 
                   {/* Clear filters if any filter is active */}
@@ -631,7 +1051,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       <h6 className="fw-bold text-dark mb-2" style={{ fontSize: '0.95rem' }}>Select Appointment Date & Time</h6>
 
                       {/* Date Carousel Row */}
-                      <div className="d-flex align-items-center gap-1 mb-3">
+                      <div id="appointment-date-section" className={`d-flex align-items-center gap-1 mb-3 ${validationErrors.date ? 'border border-danger rounded p-1' : ''}`}>
                         <button
                           type="button"
                           className="btn btn-outline-light border text-secondary px-2 py-2 rounded-2"
@@ -647,7 +1067,10 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                               <button
                                 key={item.full}
                                 type="button"
-                                onClick={() => setSelectedDate(item.full)}
+                                onClick={() => {
+                                  setSelectedDate(item.full);
+                                  setValidationErrors(prev => ({...prev, date: false}));
+                                }}
                                 className={`btn p-2 rounded-2 text-center flex-grow-1 ${
                                   isSelected
                                     ? 'btn-primary text-white shadow-sm'
@@ -671,51 +1094,85 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         </button>
                       </div>
 
+                      {/* Session Dropdown */}
+                      <div id="appointment-session-section" className="mb-3">
+                        <label className={`form-label small mb-1 ${validationErrors.session ? 'text-danger fw-bold' : 'text-muted'}`}>Select Session</label>
+                        <select
+                          className={`form-select text-dark fw-medium ${validationErrors.session ? 'is-invalid border-danger' : 'border-light-subtle'}`}
+                          value={selectedSessionId}
+                          onChange={(e) => {
+                            setSelectedSessionId(e.target.value);
+                            setValidationErrors(prev => ({...prev, session: false}));
+                          }}
+                          style={{ fontSize: '0.88rem' }}
+                        >
+                          <option value="">All Sessions</option>
+                          {opdSessionsList.map(session => (
+                            <option key={session.id} value={session.id}>
+                              {session.sessionName} ({session.fromTime ? session.fromTime.substring(0, 5) : ''} - {session.endTime ? session.endTime.substring(0, 5) : ''})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Available Time Slots Header */}
                       <div className="small fw-semibold text-dark mb-2">
                         Available Time Slots – {selectedDate} 2026
                       </div>
 
                       {/* Time Slots Grid */}
-                      <div className="d-flex flex-wrap gap-2 mb-2">
-                        {timeSlotsRow1.map((slot) => {
-                          const isSelected = selectedTimeSlot === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setSelectedTimeSlot(slot)}
-                              className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
-                                isSelected
-                                  ? 'btn-primary text-white fw-bold shadow-sm'
-                                  : 'btn-outline-primary'
-                              }`}
-                              style={{ fontSize: '0.8rem' }}
-                            >
-                              {slot}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="d-flex flex-wrap gap-2 mb-3">
-                        {timeSlotsRow2.map((slot) => {
-                          const isSelected = selectedTimeSlot === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setSelectedTimeSlot(slot)}
-                              className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
-                                isSelected
-                                  ? 'btn-primary text-white fw-bold shadow-sm'
-                                  : 'btn-outline-primary'
-                              }`}
-                              style={{ fontSize: '0.8rem' }}
-                            >
-                              {slot}
-                            </button>
-                          );
-                        })}
+                      <div id="appointment-timeslot-section" className={`d-flex flex-wrap gap-2 mb-2 ${validationErrors.timeSlot ? 'border border-danger rounded p-2' : ''}`}>
+                        {timeSlotsRow1.length > 0 || timeSlotsRow2.length > 0 ? (
+                          <>
+                            {timeSlotsRow1.map((slot) => {
+                              const isSelected = selectedTimeSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTimeSlot(slot);
+                                    setValidationErrors(prev => ({...prev, timeSlot: false}));
+                                  }}
+                                  className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
+                                    isSelected
+                                      ? 'btn-primary text-white fw-bold shadow-sm'
+                                      : 'btn-outline-primary'
+                                  }`}
+                                  style={{ fontSize: '0.8rem' }}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                            {timeSlotsRow2.length > 0 && (
+                              <div className="w-100 m-0"></div> // line break if needed, but flex-wrap handles it
+                            )}
+                            {timeSlotsRow2.map((slot) => {
+                              const isSelected = selectedTimeSlot === slot;
+                              return (
+                                <button
+                                  key={slot}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTimeSlot(slot);
+                                    setValidationErrors(prev => ({...prev, timeSlot: false}));
+                                  }}
+                                  className={`btn btn-sm rounded-2 px-2.5 py-1.5 ${
+                                    isSelected
+                                      ? 'btn-primary text-white fw-bold shadow-sm'
+                                      : 'btn-outline-primary'
+                                  }`}
+                                  style={{ fontSize: '0.8rem' }}
+                                >
+                                  {slot}
+                                </button>
+                              );
+                            })}
+                          </>
+                        ) : (
+                          <div className="text-muted small">No time slots available for this date.</div>
+                        )}
                       </div>
 
                       <hr className="my-3 border-light-subtle" />
@@ -740,13 +1197,18 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                           </span>
                           <select
                             className="form-select border-start-0 text-dark fw-medium"
-                            value={selectedPatient}
-                            onChange={(e) => setSelectedPatient(e.target.value)}
+                            value={selectedPatient ? selectedPatient.id : ''}
+                            onChange={(e) => {
+                              const p = familyMembers.find(f => f.id == e.target.value);
+                              if (p) setSelectedPatient(p);
+                            }}
                             style={{ fontSize: '0.88rem' }}
                           >
-                            <option value="Rahul Verma (Self)">Rahul Verma (Self)</option>
-                            <option value="Pooja Verma (Spouse)">Pooja Verma (Spouse)</option>
-                            <option value="Aarav Verma (Son)">Aarav Verma (Son)</option>
+                            {familyMembers.map(member => (
+                              <option key={member.id} value={member.id}>
+                                {member.name} ({member.relation})
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -755,15 +1217,15 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       <div className="row g-2 py-2 border-bottom border-light-subtle mb-3 text-secondary small">
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient Name</span>
-                          <strong className="text-dark">Rahul Verma</strong>
+                          <strong className="text-dark">{selectedPatient ? selectedPatient.name : 'N/A'}</strong>
                         </div>
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Age / Gender</span>
-                          <strong className="text-dark">34 Years / Male</strong>
+                          <strong className="text-dark">{selectedPatient ? `${selectedPatient.age} / ${selectedPatient.gender}` : 'N/A'}</strong>
                         </div>
                         <div className="col-4">
                           <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Mobile Number</span>
-                          <strong className="text-dark">+91 98102 34567</strong>
+                          <strong className="text-dark">{selectedPatient ? selectedPatient.mobileNo : 'N/A'}</strong>
                         </div>
                       </div>
 
@@ -804,8 +1266,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                             <div className="d-flex align-items-center gap-2">
                               <i className="fa-regular fa-user text-primary"></i>
                               <div>
-                                <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient</span>
-                                <strong className="text-dark">{selectedPatient}</strong>
+                                <span className="text-muted d-block" style={{ fontSize: '0.75rem' }}>Patient Name</span>
+                                <strong className="text-dark">{selectedPatient ? selectedPatient.name : 'N/A'}</strong>
                               </div>
                             </div>
                           </div>
@@ -826,17 +1288,37 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         type="button"
                         className="btn btn-outline-primary py-2.5 px-3 flex-grow-1 fw-semibold d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay at Hospital')}
+                        disabled={isBookingPayment}
                       >
-                        <i className="fa-regular fa-file-lines"></i>
-                        <span>Pay at Hospital</span>
+                        {isBookingPayment ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Booking...</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-regular fa-file-lines"></i>
+                            <span>Pay at Hospital</span>
+                          </>
+                        )}
                       </button>
                       <button
                         type="button"
-                        className="btn btn-primary py-2.5 px-3 flex-grow-1 fw-semibold d-flex align-items-center justify-content-center gap-2"
+                        className="btn btn-primary py-2.5 px-3 flex-grow-1 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay Now')}
+                        disabled={isBookingPayment}
                       >
-                        <i className="fa-regular fa-credit-card"></i>
-                        <span>Pay Now</span>
+                        {isBookingPayment && confirmedPaymentType !== 'Pay at Hospital' ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-regular fa-credit-card"></i>
+                            <span>Pay Now</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -879,19 +1361,27 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 <div className="border border-light-subtle rounded-3 p-3 bg-light text-start small mb-3">
                   <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
                     <span className="text-muted">Appointment ID:</span>
-                    <strong className="text-primary">ARI-OPD-2026-9842</strong>
+                    <strong className="text-primary">{bookedDetails?.visits?.[0]?.id ? `ARI-OPD-${bookedDetails.visits[0].id}` : 'ARI-OPD-2026-9842'}</strong>
+                  </div>
+                  <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
+                    <span className="text-muted">Token No:</span>
+                    <strong className="text-dark">{bookedDetails?.visits?.[0]?.tokenNo || '#14'}</strong>
+                  </div>
+                  <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
+                    <span className="text-muted">Department:</span>
+                    <strong className="text-dark">{bookedDetails?.visits?.[0]?.departmentName || 'N/A'}</strong>
                   </div>
                   <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
                     <span className="text-muted">Date &amp; Time:</span>
-                    <strong className="text-dark">{selectedDate} 2026, {selectedTimeSlot}</strong>
+                    <strong className="text-dark">{selectedDate} 2026, {bookedDetails?.visits?.[0]?.startTime ? bookedDetails.visits[0].startTime.substring(11,16) : selectedTimeSlot}</strong>
                   </div>
                   <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
                     <span className="text-muted">Doctor:</span>
-                    <span className="text-dark">{selectedDoctor.name} ({selectedDoctor.specialty})</span>
+                    <span className="text-dark">{bookedDetails?.visits?.[0]?.doctorName || selectedDoctor.name} ({selectedDoctor.specialty})</span>
                   </div>
                   <div className="d-flex justify-content-between py-1 border-bottom border-light-subtle">
-                    <span className="text-muted">Patient:</span>
-                    <span className="text-dark">{selectedPatient}</span>
+                    <span className="text-muted">Patient Name</span>
+                    <span className="text-dark">{bookedDetails?.patient?.fullName || (selectedPatient ? selectedPatient.name : 'N/A')}</span>
                   </div>
                   <div className="d-flex justify-content-between py-1">
                     <span className="text-muted">Payment Mode:</span>
@@ -900,7 +1390,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 </div>
 
                 <div className="alert alert-info bg-info bg-opacity-10 border-0 text-dark small py-2 px-3 text-start mb-0">
-                  <i className="fa-solid fa-circle-info text-info me-1"></i> An SMS and WhatsApp notification with your OPD Token #14 has been sent.
+                  <i className="fa-solid fa-circle-info text-info me-1"></i> An SMS and WhatsApp notification with your OPD Token #{bookedDetails?.visits?.[0]?.tokenNo || '14'} has been sent.
                 </div>
               </div>
 
