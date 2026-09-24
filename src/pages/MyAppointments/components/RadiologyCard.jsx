@@ -72,6 +72,14 @@ export default function RadiologyCard({
                     <div className="table-date-cell">
                       <span className="table-date-main">{app.date}</span>
                       <span className="table-date-sub">{app.dayTime}</span>
+                      {app.status === 'Cancelled' && app.cancellationDateTime && (
+                        <div className="text-danger mt-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                          Cancelled: {new Date(app.cancellationDateTime).toLocaleString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: true
+                          })}
+                        </div>
+                      )}
                     </div>
                   </td>
 
@@ -96,10 +104,20 @@ export default function RadiologyCard({
                         <span className="payment-badge payment-badge-paid">Paid</span>
                       ) : app.paymentStatus === 'Pending' ? (
                         <span className="payment-badge payment-badge-pending">Pending</span>
+                      ) : app.paymentStatus === 'Not paid' ? (
+                        <span className="payment-badge bg-secondary text-white border-0">Not paid</span>
+                      ) : app.paymentStatus === 'Cash collect' ? (
+                        <span className="payment-badge bg-primary text-white border-0">Cash collect</span>
+                      ) : app.paymentStatus === 'PROCESSED' ? (
+                        <span className="payment-badge bg-info text-white border-0">Processed</span>
+                      ) : app.paymentStatus === 'REFUNDED' ? (
+                        <span className="payment-badge bg-success text-white border-0">Refunded</span>
+                      ) : app.paymentStatus === 'PENDING' ? (
+                        <span className="payment-badge bg-warning text-dark border-0">Refund Pending</span>
                       ) : (
-                        <span className={`payment-badge ${app.paymentStatus === 'Refund Complete' || app.paymentStatus === 'Refunded' ? 'bg-info text-white border-0' : 'bg-warning text-dark border-0'}`}>{app.paymentStatus}</span>
+                        <span className="payment-badge bg-light text-dark border-0">{app.paymentStatus}</span>
                       )}
-                      <span className="payment-amount">₹{app.amount.toLocaleString()}</span>
+                      <span className="payment-amount">₹{app.amount.toLocaleString ? app.amount.toLocaleString() : app.amount}</span>
                     </div>
                   </td>
 

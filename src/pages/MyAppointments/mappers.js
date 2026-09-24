@@ -26,7 +26,7 @@ export const mapOpdCompletedItem = (app, parsedHospital) => {
     hospital: parsedHospital.hospitalName,
     location: parsedHospital.hospitalName,
     room: 'Room Not Assigned',
-    tokenNo: '-',
+    tokenNo: app.tokenNumber || '-',
     paymentStatus: PAYMENT_STATUS.PAID,
     amount: 0,
     status: VISIT_STATUS.COMPLETED,
@@ -51,19 +51,30 @@ export const mapCancelledItem = (app, parsedHospital) => {
   const isLab = app.departmentName?.toLowerCase().includes('lab') || app.departmentName === 'Laboratory';
   const isRad = app.departmentName?.toLowerCase().includes('rad') || app.departmentName === 'Radiology';
   
+  let computedPaymentStatus = '';
+  if (!app.paymentId) {
+      computedPaymentStatus = 'Not paid';
+  } else if (app.paymentModeCode === 'CASH' || app.paymentModeName === 'Cash') {
+      computedPaymentStatus = 'Cash collect';
+  } else {
+      computedPaymentStatus = app.refundStatus || 'PENDING';
+  }
+
   return {
     id: app.visitId,
     date: when,
     dayTime: time,
     doctor: app.doctorName || 'Not Assigned',
+    doctorId: app.doctorId,
     specialty: app.departmentName,
+    departmentId: app.departmentId,
     testName: app.doctorName ? '' : (app.departmentName || 'Diagnostic Test'),
     department: app.departmentName,
     hospital: parsedHospital.hospitalName,
     location: parsedHospital.hospitalName,
     room: 'Room Not Assigned',
-    tokenNo: '-',
-    paymentStatus: app.refundDate ? PAYMENT_STATUS.REFUND_COMPLETE : (app.refundStatus ? app.refundStatus : PAYMENT_STATUS.REFUND_PENDING),
+    tokenNo: app.tokenNumber || '-',
+    paymentStatus: computedPaymentStatus,
     amount: app.billingAmount || 0,
     status: VISIT_STATUS.CANCELLED,
     type: isLab ? APPOINTMENT_TYPE.LAB : (isRad ? APPOINTMENT_TYPE.RADIOLOGY : APPOINTMENT_TYPE.OPD),
@@ -119,13 +130,15 @@ export const mapHistoryItem = (app, parsedHospital) => {
     date: when,
     dayTime: time,
     doctor: app.doctorName || 'Not Assigned',
+    doctorId: app.doctorId,
     specialty: app.departmentName,
+    departmentId: app.departmentId,
     testName: app.doctorName ? '' : (app.departmentName || 'Diagnostic Test'),
     department: app.departmentName,
     hospital: parsedHospital.hospitalName,
     location: parsedHospital.hospitalName,
     room: 'Room Not Assigned',
-    tokenNo: '-',
+    tokenNo: app.tokenNumber || '-',
     paymentStatus: app.visitPaymentStatus === API_VISIT_STATUS.YES ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.PENDING,
     amount: app.billedAmount || 0,
     status: mappedStatus,

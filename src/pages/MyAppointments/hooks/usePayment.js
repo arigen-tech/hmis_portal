@@ -13,14 +13,6 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
     const displayName = selectedAppointment.testName || selectedAppointment.doctor;
     const { type, billHdId, amount, id } = selectedAppointment;
 
-    // Handle non-lab/rad types (OPD mock)
-    if (type !== 'lab' && type !== 'radiology') {
-      onPaymentSuccess(id, type);
-      closeModal();
-      showToast(`Payment of ₹${amount.toLocaleString()} successful for ${displayName}!`);
-      return;
-    }
-
     setIsProcessingPayment(true);
     try {
       const patientId = patientDetails?.patientId;
@@ -52,7 +44,7 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
           paymentReferenceNo: `PAY${Date.now()}`,
           timestamp: new Date().toISOString(),
           operationType: "payment_update_only",
-          ...config.buildExtraPayload(billHdId)
+          ...config.buildExtraPayload(billHdId, amount)
         };
 
         await apiService.post(config.endpoint, finalPayload);
@@ -150,7 +142,7 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
                 paymentReferenceNo: response.razorpay_payment_id,
                 timestamp: new Date().toISOString(),
                 operationType: "payment_update_only",
-                ...config.buildExtraPayload(billHdId)
+                ...config.buildExtraPayload(billHdId, amount)
               };
 
               await apiService.post(config.endpoint, finalPayload);
