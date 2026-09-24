@@ -134,7 +134,9 @@ export function useRescheduleAppointment({ showToast, onRefresh }) {
              apiEndTime = `${rescheduleDate}T00:00:00Z`;
           }
       } else {
-         apiStartTime = rescheduleTime;
+         apiStartTime = null;
+         apiEndTime = null;
+         payloadTokenNumber = null;
       }
 
       const payload = {
