@@ -232,7 +232,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [rawTimeSlots, setRawTimeSlots] = useState([]);
   const [isDoctorDetailsLoading, setIsDoctorDetailsLoading] = useState(false);
-  const [isBookingPayment, setIsBookingPayment] = useState(false);
+  const [isTimeSlotsLoading, setIsTimeSlotsLoading] = useState(false);
+  const [loadingPaymentType, setLoadingPaymentType] = useState(null);
   const [bookedDetails, setBookedDetails] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [alert, setAlert] = useState(null);
@@ -276,6 +277,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
       const selectedOption = dateOptions.find(d => d.full === selectedDate);
       if (!selectedOption) return;
       
+      setIsTimeSlotsLoading(true);
       try {
         const rawDoctorId = selectedDoctor.id.toString().replace('doc-', '');
         const deptId = selectedSpecialty || selectedDoctor.departmentId; 
@@ -307,6 +309,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
         setAvailableTimeSlots([]);
         setRawTimeSlots([]);
         setSelectedTimeSlot('');
+      } finally {
+        setIsTimeSlotsLoading(false);
       }
     };
 
@@ -404,7 +408,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
     setValidationErrors({});
 
     if (paymentType === 'Pay at Hospital' || paymentType === 'Pay Now') {
-      setIsBookingPayment(true);
+      setLoadingPaymentType(paymentType);
       try {
         const rawDoctorId = selectedDoctor.id.toString().replace('doc-', '');
         const deptId = selectedSpecialty || selectedDoctor.departmentId || 5;
@@ -571,7 +575,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                      console.error("Verification error:", err);
                      setAlert({ type: 'danger', message: "Error during payment verification." });
                    } finally {
-                     setIsBookingPayment(false);
+                     setLoadingPaymentType(null);
                    }
                  },
                  theme: { color: "#3399cc" }
@@ -581,23 +585,23 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                rzp.on('payment.failed', function(response) {
                  console.error("Payment failed", response.error);
                  setAlert({ type: 'danger', message: response.error.description || "Payment failed" });
-                 setIsBookingPayment(false);
+                 setLoadingPaymentType(null);
                });
                
                rzp.open();
              } catch(err) {
                console.error("Razorpay integration error:", err);
                setAlert({ type: 'danger', message: err.message || "An error occurred during payment initialization." });
-               setIsBookingPayment(false);
+               setLoadingPaymentType(null);
              }
            } else {
              setConfirmedPaymentType(paymentType);
              setShowConfirmationModal(true);
-             setIsBookingPayment(false);
+             setLoadingPaymentType(null);
            }
         } else {
            setAlert({ type: 'danger', message: "Booking failed. Please try again." });
-           setIsBookingPayment(false);
+           setLoadingPaymentType(null);
         }
       } catch(err) {
         console.error("Booking error:", err);
@@ -606,7 +610,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
         } else {
           setAlert({ type: 'danger', message: "An error occurred while booking." });
         }
-        setIsBookingPayment(false);
+        setLoadingPaymentType(null);
       }
     } else {
       setConfirmedPaymentType(paymentType);
@@ -926,7 +930,14 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                 </button>
               </div>
 
-              {/* Two Column Layout */}
+              {isDoctorDetailsLoading ? (
+                <div className="card border border-light-subtle rounded-3 bg-white p-5 shadow-sm h-100 d-flex justify-content-center align-items-center text-center">
+                  <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <h5 className="fw-bold text-muted">Fetching doctor details...</h5>
+                </div>
+              ) : (
               <div className="row g-3">
                 {/* Left Column: Doctor Profile & Details */}
                 <div className="col-12 col-lg-6">
@@ -1122,7 +1133,12 @@ export default function BookAppointment({ defaultView = 'listing' }) {
 
                       {/* Time Slots Grid */}
                       <div id="appointment-timeslot-section" className={`d-flex flex-wrap gap-2 mb-2 ${validationErrors.timeSlot ? 'border border-danger rounded p-2' : ''}`}>
-                        {timeSlotsRow1.length > 0 || timeSlotsRow2.length > 0 ? (
+                        {isTimeSlotsLoading ? (
+                          <div className="w-100 text-center py-3">
+                            <div className="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+                            <span className="small text-muted">Fetching time slots...</span>
+                          </div>
+                        ) : timeSlotsRow1.length > 0 || timeSlotsRow2.length > 0 ? (
                           <>
                             {timeSlotsRow1.map((slot) => {
                               const isSelected = selectedTimeSlot === slot;
@@ -1288,9 +1304,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         type="button"
                         className="btn btn-outline-primary py-2.5 px-3 flex-grow-1 fw-semibold d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay at Hospital')}
-                        disabled={isBookingPayment}
+                        disabled={loadingPaymentType !== null}
                       >
-                        {isBookingPayment ? (
+                        {loadingPaymentType === 'Pay at Hospital' ? (
                           <>
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             <span>Booking...</span>
@@ -1306,9 +1322,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         type="button"
                         className="btn btn-primary py-2.5 px-3 flex-grow-1 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay Now')}
-                        disabled={isBookingPayment}
+                        disabled={loadingPaymentType !== null}
                       >
-                        {isBookingPayment && confirmedPaymentType !== 'Pay at Hospital' ? (
+                        {loadingPaymentType === 'Pay Now' ? (
                           <>
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             <span>Processing...</span>
@@ -1324,6 +1340,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </main>
@@ -1403,13 +1420,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                   Close
                 </button>
                 <div className="d-flex gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary px-3"
-                    onClick={() => window.print()}
-                  >
-                    <i className="fa-solid fa-print me-1"></i> Print Slip
-                  </button>
+
                   <button
                     type="button"
                     className="btn btn-primary px-3"
