@@ -51,6 +51,15 @@ export const mapCancelledItem = (app, parsedHospital) => {
   const isLab = app.departmentName?.toLowerCase().includes('lab') || app.departmentName === 'Laboratory';
   const isRad = app.departmentName?.toLowerCase().includes('rad') || app.departmentName === 'Radiology';
   
+  let computedPaymentStatus = '';
+  if (!app.paymentId) {
+      computedPaymentStatus = 'Not paid';
+  } else if (app.paymentModeCode === 'CASH' || app.paymentModeName === 'Cash') {
+      computedPaymentStatus = 'Cash collect';
+  } else {
+      computedPaymentStatus = app.refundStatus || 'PENDING';
+  }
+
   return {
     id: app.visitId,
     date: when,
@@ -63,7 +72,7 @@ export const mapCancelledItem = (app, parsedHospital) => {
     location: parsedHospital.hospitalName,
     room: 'Room Not Assigned',
     tokenNo: '-',
-    paymentStatus: app.refundDate ? PAYMENT_STATUS.REFUND_COMPLETE : (app.refundStatus ? app.refundStatus : PAYMENT_STATUS.REFUND_PENDING),
+    paymentStatus: computedPaymentStatus,
     amount: app.billingAmount || 0,
     status: VISIT_STATUS.CANCELLED,
     type: isLab ? APPOINTMENT_TYPE.LAB : (isRad ? APPOINTMENT_TYPE.RADIOLOGY : APPOINTMENT_TYPE.OPD),
