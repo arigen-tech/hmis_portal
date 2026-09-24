@@ -16,7 +16,8 @@ export const GATEWAY_CODE = Object.freeze({
 
 export const BILLING_TYPE = Object.freeze({
   LAB: 'LAB_SC',
-  RAD: 'RAD_SC'
+  RAD: 'RAD_SC',
+  OPD: 'OPD_SC'
 });
 
 export const PAYMENT_CONFIG = Object.freeze({
@@ -29,5 +30,13 @@ export const PAYMENT_CONFIG = Object.freeze({
     billingType: BILLING_TYPE.RAD,
     endpoint: ENDPOINTS.BILLING.PROCESS_RADIOLOGY_PAYMENT,
     buildExtraPayload: (billHdId) => ({ billingHeaderIds: [billHdId] })
+  },
+  [APPOINTMENT_TYPE.OPD]: {
+    billingType: BILLING_TYPE.OPD,
+    endpoint: ENDPOINTS.BILLING.PROCESS_OPD_PAYMENT,
+    buildExtraPayload: (billHdId, amount) => ({
+      billingHeaderIds: [billHdId],
+      opdBillPayments: [{ billHeaderId: billHdId, netAmount: amount }]
+    })
   }
 });

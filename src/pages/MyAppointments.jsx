@@ -50,7 +50,10 @@ export default function MyAppointments() {
     rescheduleDate, setRescheduleDate,
     rescheduleTime, setRescheduleTime,
     showRescheduleConfirm, setShowRescheduleConfirm,
-    isRescheduling, initReschedule, handleApproveReschedule
+    isRescheduling, initReschedule, handleApproveReschedule,
+    opdSessionsList, selectedSessionId, setSelectedSessionId,
+    availableTimeSlots, selectedTimeSlot, setSelectedTimeSlot,
+    isTimeSlotsLoading
   } = useRescheduleAppointment({ 
     showToast, 
     onRefresh: () => setRefreshTrigger(prev => prev + 1) 
@@ -137,7 +140,7 @@ export default function MyAppointments() {
 
   const handleOpenReschedule = (app) => {
     openModal('reschedule', app);
-    initReschedule();
+    initReschedule(app);
   };
 
   const handleConfirmReschedule = () => {
@@ -519,6 +522,13 @@ export default function MyAppointments() {
           isRescheduling={isRescheduling}
           handleApproveRescheduleWrapper={handleApproveRescheduleWrapper}
           handleConfirmReschedule={handleConfirmReschedule}
+          opdSessionsList={opdSessionsList}
+          selectedSessionId={selectedSessionId}
+          setSelectedSessionId={setSelectedSessionId}
+          availableTimeSlots={availableTimeSlots}
+          selectedTimeSlot={selectedTimeSlot}
+          setSelectedTimeSlot={setSelectedTimeSlot}
+          isTimeSlotsLoading={isTimeSlotsLoading}
           cancelReasonId={cancelReasonId}
           setCancelReasonId={setCancelReasonId}
           cancelReasonsList={cancelReasonsList}

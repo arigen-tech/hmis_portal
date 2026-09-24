@@ -22,6 +22,13 @@ export function AppointmentModals({
   isRescheduling,
   handleApproveRescheduleWrapper,
   handleConfirmReschedule,
+  opdSessionsList,
+  selectedSessionId,
+  setSelectedSessionId,
+  availableTimeSlots,
+  selectedTimeSlot,
+  setSelectedTimeSlot,
+  isTimeSlotsLoading,
 
   // Cancel Modal
   cancelReasonId,
@@ -150,7 +157,7 @@ export function AppointmentModals({
             {/* MODAL 2: RESCHEDULE */}
             {modalType === 'reschedule' && selectedAppointment && (
               <div className="modal-backdrop-custom" onClick={() => closeModal()}>
-                <div className="modal-dialog-custom" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-dialog-custom" style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
                   <div className="modal-header-custom">
                     <h5>Reschedule Appointment</h5>
                     <button className="modal-close-btn" onClick={() => closeModal()}>
@@ -166,7 +173,7 @@ export function AppointmentModals({
                         <h5 className="mb-3">Are you sure you want to reschedule?</h5>
                         <p className="text-muted mb-0">
                           The appointment for <strong>{selectedAppointment.doctor || selectedAppointment.testName}</strong> will be moved to <strong>{rescheduleDate}</strong>
-                          {selectedAppointment.type !== 'lab' && selectedAppointment.type !== 'radiology' && ` at ${rescheduleTime}`}.
+                          {selectedAppointment.type === 'opd' ? ` at ${selectedTimeSlot}` : (selectedAppointment.type !== 'lab' && selectedAppointment.type !== 'radiology' ? ` at ${rescheduleTime}` : '')}.
                         </p>
                       </div>
                     ) : (
@@ -191,24 +198,50 @@ export function AppointmentModals({
                             min="2026-09-01"
                           />
                         </div>
-      
-                        {selectedAppointment.type !== 'lab' && selectedAppointment.type !== 'radiology' && (
-                          <div className="mb-3">
-                            <label className="form-label fw-bold">Select Available Time Slot</label>
-                            <div className="row g-2">
-                              {['08:30 AM', '09:00 AM', '10:15 AM', '11:00 AM', '02:30 PM', '04:00 PM'].map((slot) => (
-                                <div className="col-4" key={slot}>
-                                  <button
-                                    type="button"
-                                    className={`btn w-100 btn-sm ${rescheduleTime === slot ? 'btn-primary' : 'btn-outline-secondary'}`}
-                                    onClick={() => setRescheduleTime(slot)}
-                                  >
-                                    {slot}
-                                  </button>
-                                </div>
-                              ))}
+
+                        {selectedAppointment.type === 'opd' ? (
+                          <>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Select Session</label>
+                              <select
+                                className="form-select border text-dark"
+                                value={selectedSessionId}
+                                onChange={(e) => setSelectedSessionId(e.target.value)}
+                              >
+                                {opdSessionsList && opdSessionsList.map((session) => (
+                                  <option key={session.id} value={session.id}>
+                                    {session.sessionName} ({session.fromTime ? session.fromTime.substring(0, 5) : ''} - {session.endTime ? session.endTime.substring(0, 5) : ''})
+                                  </option>
+                                ))}
+                              </select>
                             </div>
-                          </div>
+
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Select Time Slot</label>
+                              {isTimeSlotsLoading ? (
+                                <div className="text-muted small">Loading time slots...</div>
+                              ) : availableTimeSlots && availableTimeSlots.length > 0 ? (
+                                <div className="row g-2">
+                                  {availableTimeSlots.map((slot) => (
+                                    <div className="col-4" key={slot}>
+                                      <button
+                                        type="button"
+                                        className={`btn w-100 btn-sm ${selectedTimeSlot === slot ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                        onClick={() => setSelectedTimeSlot(slot)}
+                                      >
+                                        {slot}
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-muted small">No time slots available for selected date/session.</div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                          </>
                         )}
                       </>
                     )}
