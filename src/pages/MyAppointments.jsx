@@ -85,8 +85,9 @@ export default function MyAppointments() {
   // Diagnostic Test Booking State
   const [newBookingTest, setNewBookingTest] = useState('X-Ray Chest (PA View)');
   const [newBookingHospital, setNewBookingHospital] = useState('ARI Hospital, Delhi');
-  const [newBookingDate, setNewBookingDate] = useState('2026-10-18');
+  const [newBookingDate, setNewBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [newBookingTime, setNewBookingTime] = useState('Tue, 02:00 PM');
+  const [isBookingTest, setIsBookingTest] = useState(false);
 
   useEffect(() => {
     if (initialPaymentMethod && !paymentMethod) {
@@ -203,78 +204,95 @@ export default function MyAppointments() {
   };
 
   const handleOpenBookModal = (type) => {
+    const today = new Date().toISOString().split('T')[0];
     if (type === APPOINTMENT_TYPE.LAB) {
       setNewBookingTest('Complete Blood Count (CBC)');
       setNewBookingHospital('ARI Hospital, Delhi');
-      setNewBookingDate('2026-10-15');
+      setNewBookingDate(today);
       setNewBookingTime('Fri, 08:00 AM');
       openModal(MODAL_TYPE.BOOK_LAB);
     } else {
       setNewBookingTest('X-Ray Chest (PA View)');
       setNewBookingHospital('ARI Hospital, Delhi');
-      setNewBookingDate('2026-10-18');
+      setNewBookingDate(today);
       setNewBookingTime('Tue, 02:00 PM');
       openModal(MODAL_TYPE.BOOK_RADIOLOGY);
     }
   };
 
-  const handleConfirmBookTest = (type) => {
+  const handleConfirmBookTest = async (type, selectedTestsList = []) => {
     if (type === 'lab') {
-      const priceMap = {
-        'Complete Blood Count (CBC)': { price: 350, dept: 'Pathology Lab' },
-        'Thyroid Profile (T3, T4, TSH)': { price: 500, dept: 'Endocrinology Lab' },
-        'Health Checkup Package': { price: 1499, dept: 'Comprehensive Health' },
-        'Lipid Profile': { price: 750, dept: 'Biochemistry Lab' },
-        'HbA1c Diabetes Screen': { price: 450, dept: 'Pathology Lab' },
-        'Liver Function Test (LFT)': { price: 650, dept: 'Biochemistry Lab' }
-      };
-      const info = priceMap[newBookingTest] || { price: 500, dept: 'Pathology Lab' };
-      const newApp = {
-        id: `lab-${Date.now()}`,
-        date: newBookingDate,
-        dayTime: newBookingTime,
-        testName: newBookingTest,
-        department: info.dept,
-        hospital: newBookingHospital,
-        location: 'Lab - 1st Floor',
-        paymentStatus: 'Pending',
-        amount: info.price,
-        status: 'Scheduled',
-        type: 'lab'
-      };
-      setLabAppointments(prev => [newApp, ...prev]);
-      closeModal();
-      setActiveMenu('lab');
-      setDiagnosticTab('lab');
-      showToast(`Booked ${newBookingTest} at ${newBookingHospital}!`);
+      if (!selectedTestsList || selectedTestsList.length === 0) {
+        showToast('Please select at least one test', 'error');
+        return;
+      }
+      
+      setIsBookingTest(true);
+      try {
+        const payload = {
+          patient: null,
+          patientId: parsedPatient?.id || parsedPatient?.patientId || 1131,
+          investigationReq: selectedTestsList.map(test => ({
+            id: test.investigationId,
+            appointmentDate: newBookingDate,
+            checkStatus: true,
+            actualAmount: test.price || 1,
+            discountedAmount: 0,
+            type: "i"
+          }))
+        };
+        
+        const response = await apiService.post(ENDPOINTS.APPOINTMENTS.BOOK_LAB_TEST, payload);
+        
+        if (response) {
+          showToast(`Booked ${newBookingTest} successfully!`);
+          setRefreshTrigger(prev => prev + 1);
+          closeModal();
+          setActiveMenu('lab');
+          setDiagnosticTab('lab');
+        }
+      } catch (error) {
+        console.error("Booking lab test failed", error);
+        showToast('Error booking lab test', 'error');
+      } finally {
+        setIsBookingTest(false);
+      }
     } else {
-      const priceMap = {
-        'X-Ray Chest (PA View)': { price: 600, dept: 'Radiology Dept' },
-        'Ultrasound Abdomen': { price: 1200, dept: 'USG Department' },
-        'MRI Brain': { price: 4500, dept: 'Advanced Imaging' },
-        'CT Scan Thorax': { price: 2800, dept: 'Computed Tomography' },
-        'Spine MRI (Lumbar)': { price: 4200, dept: 'Advanced Imaging' },
-        'Digital Mammography': { price: 1800, dept: "Women's Imaging" }
-      };
-      const info = priceMap[newBookingTest] || { price: 1000, dept: 'Radiology Dept' };
-      const newApp = {
-        id: `rad-${Date.now()}`,
-        date: newBookingDate,
-        dayTime: newBookingTime,
-        testName: newBookingTest,
-        department: info.dept,
-        hospital: newBookingHospital,
-        location: 'Radiology - Ground Floor',
-        paymentStatus: 'Pending',
-        amount: info.price,
-        status: 'Scheduled',
-        type: 'radiology'
-      };
-      setRadiologyAppointments(prev => [newApp, ...prev]);
-      closeModal();
-      setActiveMenu('radiology');
-      setDiagnosticTab('radiology');
-      showToast(`Booked ${newBookingTest} at ${newBookingHospital}!`);
+      if (!selectedTestsList || selectedTestsList.length === 0) {
+        showToast('Please select at least one test', 'error');
+        return;
+      }
+      
+      setIsBookingTest(true);
+      try {
+        const payload = {
+          patient: parsedPatient || { id: parsedPatient?.id || parsedPatient?.patientId || 1131 },
+          patientId: parsedPatient?.id || parsedPatient?.patientId || 1131,
+          investigationReq: selectedTestsList.map(test => ({
+            id: test.investigationId,
+            appointmentDate: newBookingDate,
+            checkStatus: true,
+            actualAmount: test.price || 1,
+            discountedAmount: 0,
+            type: "i"
+          }))
+        };
+        
+        const response = await apiService.put(ENDPOINTS.APPOINTMENTS.BOOK_RADIOLOGY_TEST, payload);
+        
+        if (response) {
+          showToast(`Booked ${selectedTestsList.length} radiology test(s) successfully!`);
+          setRefreshTrigger(prev => prev + 1);
+          closeModal();
+          setActiveMenu('radiology');
+          setDiagnosticTab('radiology');
+        }
+      } catch (error) {
+        console.error("Booking radiology test failed", error);
+        showToast('Error booking radiology test', 'error');
+      } finally {
+        setIsBookingTest(false);
+      }
     }
   };
 
@@ -546,6 +564,7 @@ export default function MyAppointments() {
           newBookingTime={newBookingTime}
           setNewBookingTime={setNewBookingTime}
           handleConfirmBookTest={handleConfirmBookTest}
+          isBookingTest={isBookingTest}
         />
 
       {showPdfViewer && (

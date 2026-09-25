@@ -1,5 +1,7 @@
-import React from 'react';
-
+import React, { useState, useEffect, useRef } from 'react';
+import { apiService } from '../../../services/apiService';
+import { ENDPOINTS } from '../../../constants/apiEndpoints';
+import { useStoredSession } from '../hooks/useStoredSession';
 export function AppointmentModals({
   modalType,
   selectedAppointment,
@@ -53,8 +55,111 @@ export function AppointmentModals({
   setNewBookingDate,
   newBookingTime,
   setNewBookingTime,
-  handleConfirmBookTest
+  handleConfirmBookTest,
+  isBookingTest
 }) {
+  const { patientDetails: parsedPatient, selectedHospital: parsedHospital } = useStoredSession();
+  
+  const [investigationList, setInvestigationList] = useState([]);
+  const [investigationSearch, setInvestigationSearch] = useState('');
+  const [filteredInvestigations, setFilteredInvestigations] = useState([]);
+  const [selectedInvestigation, setSelectedInvestigation] = useState(null);
+  const [selectedTestsList, setSelectedTestsList] = useState([]);
+  const [hospitalList, setHospitalList] = useState([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (modalType === 'book-lab' || modalType === 'book-radiology') {
+      setSelectedTestsList([]);
+      setInvestigationSearch('');
+      setSelectedInvestigation(null);
+      const fetchInvestigations = async () => {
+        try {
+          let genderCode = 'm';
+          if (parsedPatient) {
+            const genderName = (parsedPatient.genderName || parsedPatient.gender || '').toLowerCase();
+            if (genderName.startsWith('f')) {
+              genderCode = 'f';
+            } else if (genderName.startsWith('m')) {
+              genderCode = 'm';
+            }
+          }
+          const url = modalType === 'book-radiology' 
+            ? `${ENDPOINTS.MASTER.GET_INVESTIGATIONS_PRICE}?genderApplicable=${genderCode}&radioFlag=true`
+            : `${ENDPOINTS.MASTER.GET_INVESTIGATIONS_PRICE}?genderApplicable=${genderCode}`;
+          const res = await apiService.get(url);
+          if (res?.response) {
+            setInvestigationList(res.response);
+            setFilteredInvestigations(res.response);
+          }
+        } catch (error) {
+          console.error("Failed to load investigations", error);
+        }
+      };
+      const fetchHospitals = async () => {
+        try {
+          const res = await apiService.get(ENDPOINTS.MASTER.GET_ALL_HOSPITALS);
+          if (res?.response) {
+            setHospitalList(res.response);
+          }
+        } catch (error) {
+          console.error("Failed to load hospitals", error);
+        }
+      };
+      fetchInvestigations();
+      fetchHospitals();
+
+      if (parsedHospital && parsedHospital.hospitalName) {
+        setNewBookingHospital(parsedHospital.hospitalName);
+      }
+    }
+  }, [modalType, parsedPatient, parsedHospital, setNewBookingHospital]);
+
+  useEffect(() => {
+    if (investigationSearch) {
+      setFilteredInvestigations(
+        investigationList.filter(item => 
+          item.investigationName.toLowerCase().includes(investigationSearch.toLowerCase())
+        )
+      );
+    } else {
+      setFilteredInvestigations(investigationList);
+    }
+  }, [investigationSearch, investigationList]);
+
+  const handleSelectInvestigation = (item) => {
+    setSelectedInvestigation(item);
+    setInvestigationSearch(item.investigationName);
+    setIsSearchOpen(false);
+  };
+
+  const handleAddTest = () => {
+    if (selectedInvestigation && !selectedTestsList.find(t => t.investigationId === selectedInvestigation.investigationId)) {
+      const newList = [...selectedTestsList, selectedInvestigation];
+      setSelectedTestsList(newList);
+      setNewBookingTest(newList.map(t => t.investigationName).join(', '));
+      setSelectedInvestigation(null);
+      setInvestigationSearch('');
+    }
+  };
+
+  const handleRemoveTest = (idToRemove) => {
+    const newList = selectedTestsList.filter(t => t.investigationId !== idToRemove);
+    setSelectedTestsList(newList);
+    setNewBookingTest(newList.map(t => t.investigationName).join(', '));
+  };
+
   return (
     <>
       {/* MODAL 1: PAY NOW */}
@@ -718,22 +823,69 @@ export function AppointmentModals({
                       <i className="fas fa-times"></i>
                     </button>
                   </div>
-                  <div className="modal-body-custom">
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">Select Procedure / Test</label>
-                      <select
-                        className="form-select"
-                        value={newBookingTest}
-                        onChange={(e) => setNewBookingTest(e.target.value)}
-                      >
-                        <option value="X-Ray Chest (PA View)">X-Ray Chest (PA View) — ₹600 (Radiology Dept)</option>
-                        <option value="Ultrasound Abdomen">Ultrasound Abdomen — ₹1,200 (USG Department)</option>
-                        <option value="MRI Brain">MRI Brain (with Contrast) — ₹4,500 (Advanced Imaging)</option>
-                        <option value="CT Scan Thorax">CT Scan Thorax — ₹2,800 (Computed Tomography)</option>
-                        <option value="Spine MRI (Lumbar)">Spine MRI (Lumbar) — ₹4,200 (Advanced Imaging)</option>
-                        <option value="Digital Mammography">Digital Mammography — ₹1,800 (Women's Imaging)</option>
-                      </select>
+                  <div className="modal-body-custom" style={{ overflow: 'visible' }}>
+                    <div className="mb-3 position-relative" ref={searchRef}>
+                      <label className="form-label fw-bold">Search & Select Procedure / Test</label>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Search for test (e.g. X-Ray, USG...)"
+                          value={investigationSearch}
+                          onChange={(e) => {
+                             setInvestigationSearch(e.target.value);
+                             setIsSearchOpen(true);
+                             setSelectedInvestigation(null);
+                          }}
+                          onFocus={() => setIsSearchOpen(true)}
+                        />
+                        <button 
+                          className="btn btn-primary" 
+                          type="button"
+                          onClick={handleAddTest}
+                          disabled={!selectedInvestigation}
+                        >
+                          <i className="fas fa-plus"></i> Add
+                        </button>
+                      </div>
+                      {isSearchOpen && filteredInvestigations.length > 0 && (
+                        <ul className="list-group position-absolute w-100 mt-1 shadow-sm" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
+                          {filteredInvestigations.map((item) => (
+                            <li 
+                              key={item.investigationId} 
+                              className="list-group-item list-group-item-action"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleSelectInvestigation(item)}
+                            >
+                              {item.investigationName} - ₹{item.price}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
+                    
+                    {selectedTestsList.length > 0 && (
+                      <div className="mb-3">
+                        <label className="form-label fw-bold small text-muted mb-2">Tests Added:</label>
+                        <ul className="list-group">
+                          {selectedTestsList.map(test => (
+                            <li key={test.investigationId} className="list-group-item d-flex justify-content-between align-items-center py-2">
+                              <div>
+                                <div className="fw-semibold text-dark">{test.investigationName}</div>
+                                <div className="small text-muted">₹{test.price} {test.container ? `• ${test.container}` : ''}</div>
+                              </div>
+                              <button 
+                                className="btn btn-sm btn-outline-danger border-0" 
+                                onClick={() => handleRemoveTest(test.investigationId)}
+                                title="Remove Test"
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
       
                     <div className="mb-3">
                       <label className="form-label fw-bold">Select Hospital / Diagnostic Facility</label>
@@ -742,49 +894,34 @@ export function AppointmentModals({
                         value={newBookingHospital}
                         onChange={(e) => setNewBookingHospital(e.target.value)}
                       >
-                        <option value="ARI Hospital, Delhi">ARI Hospital, Delhi (Radiology - Ground Floor)</option>
-                        <option value="ARI Diagnostic Center, Delhi">ARI Diagnostic Center, Delhi (Ultrasound Suite 2)</option>
-                        <option value="City Scan Center, Delhi">City Scan Center, Delhi (Advanced MRI/CT Wing)</option>
-                        <option value="Apollo Hospital, Delhi">Apollo Hospital, Delhi (Diagnostic Block)</option>
+                        <option value="">-- Select Hospital --</option>
+                        {hospitalList.map((hosp) => (
+                          <option key={hosp.hospitalId} value={hosp.hospitalName}>{hosp.hospitalName}</option>
+                        ))}
                       </select>
                     </div>
       
                     <div className="row g-3 mb-3">
-                      <div className="col-md-6">
+                      <div className="col-md-12">
                         <label className="form-label fw-bold">Appointment Date</label>
                         <input
                           type="date"
                           className="form-control"
                           value={newBookingDate}
                           onChange={(e) => setNewBookingDate(e.target.value)}
-                          min="2026-09-01"
+                          min={new Date().toISOString().split('T')[0]}
                         />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-bold">Preferred Time Slot</label>
-                        <select
-                          className="form-select"
-                          value={newBookingTime}
-                          onChange={(e) => setNewBookingTime(e.target.value)}
-                        >
-                          <option value="Tue, 02:00 PM">02:00 PM (Afternoon)</option>
-                          <option value="Wed, 11:00 AM">11:00 AM (Morning)</option>
-                          <option value="Mon, 10:00 AM">10:00 AM (Morning)</option>
-                          <option value="09:00 AM">09:00 AM (Early Slot)</option>
-                          <option value="03:30 PM">03:30 PM (Evening)</option>
-                          <option value="05:00 PM">05:00 PM (Evening)</option>
-                        </select>
                       </div>
                     </div>
       
                     <div className="p-3 bg-light rounded-3 mb-3 border">
                       <div className="d-flex justify-content-between mb-1 small">
-                        <span className="text-muted">Selected Scan:</span>
-                        <strong className="text-dark">{newBookingTest}</strong>
+                        <span className="text-muted">Total Tests:</span>
+                        <strong className="text-dark">{selectedTestsList.length}</strong>
                       </div>
                       <div className="d-flex justify-content-between mb-1 small">
                         <span className="text-muted">Facility:</span>
-                        <span>{newBookingHospital}</span>
+                        <span>{newBookingHospital || 'None Selected'}</span>
                       </div>
                       <div className="d-flex justify-content-between mb-1 small">
                         <span className="text-muted">Radiologist Consultation:</span>
@@ -793,7 +930,7 @@ export function AppointmentModals({
                       <div className="d-flex justify-content-between pt-2 border-top fw-bold text-dark">
                         <span>Estimated Total:</span>
                         <span className="text-primary fs-6">
-                          ₹{(newBookingTest.includes('MRI') ? 4500 : newBookingTest.includes('CT') ? 2800 : newBookingTest.includes('Ultrasound') ? 1200 : newBookingTest.includes('Mammography') ? 1800 : 600).toLocaleString()}
+                          ₹{selectedTestsList.reduce((acc, test) => acc + test.price, 0).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -807,9 +944,19 @@ export function AppointmentModals({
                     <button
                       type="button"
                       className="btn-book-radiology"
-                      onClick={() => handleConfirmBookTest('radiology')}
+                      onClick={() => handleConfirmBookTest('radiology', selectedTestsList)}
+                      disabled={isBookingTest}
                     >
-                      <i className="fas fa-check-circle"></i> Confirm &amp; Book Radiology Test
+                      {isBookingTest ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Booking...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-check-circle"></i> Confirm &amp; Book Radiology Test
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -834,22 +981,69 @@ export function AppointmentModals({
                       <i className="fas fa-times"></i>
                     </button>
                   </div>
-                  <div className="modal-body-custom">
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">Select Test / Health Package</label>
-                      <select
-                        className="form-select"
-                        value={newBookingTest}
-                        onChange={(e) => setNewBookingTest(e.target.value)}
-                      >
-                        <option value="Complete Blood Count (CBC)">Complete Blood Count (CBC) — ₹350 (Pathology Lab)</option>
-                        <option value="Thyroid Profile (T3, T4, TSH)">Thyroid Profile (T3, T4, TSH) — ₹500 (Endocrinology Lab)</option>
-                        <option value="Health Checkup Package">Health Checkup Package (Full Body) — ₹1,499</option>
-                        <option value="Lipid Profile">Lipid Profile (Heart Health) — ₹750 (Biochemistry)</option>
-                        <option value="HbA1c Diabetes Screen">HbA1c Diabetes Screen — ₹450 (Pathology Lab)</option>
-                        <option value="Liver Function Test (LFT)">Liver Function Test (LFT) — ₹650 (Biochemistry)</option>
-                      </select>
+                  <div className="modal-body-custom" style={{ overflow: 'visible' }}>
+                    <div className="mb-3 position-relative" ref={searchRef}>
+                      <label className="form-label fw-bold">Search & Select Test</label>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Search for test (e.g. Sodium, ESR...)"
+                          value={investigationSearch}
+                          onChange={(e) => {
+                             setInvestigationSearch(e.target.value);
+                             setIsSearchOpen(true);
+                             setSelectedInvestigation(null);
+                          }}
+                          onFocus={() => setIsSearchOpen(true)}
+                        />
+                        <button 
+                          className="btn btn-primary" 
+                          type="button"
+                          onClick={handleAddTest}
+                          disabled={!selectedInvestigation}
+                        >
+                          <i className="fas fa-plus"></i> Add
+                        </button>
+                      </div>
+                      {isSearchOpen && filteredInvestigations.length > 0 && (
+                        <ul className="list-group position-absolute w-100 mt-1 shadow-sm" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
+                          {filteredInvestigations.map((item) => (
+                            <li 
+                              key={item.investigationId} 
+                              className="list-group-item list-group-item-action"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleSelectInvestigation(item)}
+                            >
+                              {item.investigationName} - ₹{item.price}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
+                    
+                    {selectedTestsList.length > 0 && (
+                      <div className="mb-3">
+                        <label className="form-label fw-bold small text-muted mb-2">Tests Added:</label>
+                        <ul className="list-group">
+                          {selectedTestsList.map(test => (
+                            <li key={test.investigationId} className="list-group-item d-flex justify-content-between align-items-center py-2">
+                              <div>
+                                <div className="fw-semibold text-dark">{test.investigationName}</div>
+                                <div className="small text-muted">₹{test.price} • {test.container}</div>
+                              </div>
+                              <button 
+                                className="btn btn-sm btn-outline-danger border-0" 
+                                onClick={() => handleRemoveTest(test.investigationId)}
+                                title="Remove Test"
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
       
                     <div className="mb-3">
                       <label className="form-label fw-bold">Select Hospital / Diagnostic Lab</label>
@@ -858,57 +1052,39 @@ export function AppointmentModals({
                         value={newBookingHospital}
                         onChange={(e) => setNewBookingHospital(e.target.value)}
                       >
-                        <option value="ARI Hospital, Delhi">ARI Hospital, Delhi (Lab - 1st Floor)</option>
-                        <option value="ARI Diagnostic Center, Delhi">ARI Diagnostic Center, Delhi (Pathology Wing)</option>
-                        <option value="City Labs, Delhi">City Labs, Delhi (Central Diagnostic Unit)</option>
-                        <option value="Apollo Hospital, Delhi">Apollo Hospital, Delhi (Clinical Lab)</option>
+                        <option value="">-- Select Hospital --</option>
+                        {hospitalList.map((hosp) => (
+                          <option key={hosp.hospitalId} value={hosp.hospitalName}>{hosp.hospitalName}</option>
+                        ))}
                       </select>
                     </div>
       
                     <div className="row g-3 mb-3">
-                      <div className="col-md-6">
+                      <div className="col-md-12">
                         <label className="form-label fw-bold">Appointment Date</label>
                         <input
                           type="date"
                           className="form-control"
                           value={newBookingDate}
                           onChange={(e) => setNewBookingDate(e.target.value)}
-                          min="2026-09-01"
+                          min={new Date().toISOString().split('T')[0]}
                         />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-bold">Preferred Time Slot</label>
-                        <select
-                          className="form-select"
-                          value={newBookingTime}
-                          onChange={(e) => setNewBookingTime(e.target.value)}
-                        >
-                          <option value="Fri, 08:00 AM">08:00 AM (Fasting Slot)</option>
-                          <option value="Fri, 09:00 AM">09:00 AM (Morning)</option>
-                          <option value="Fri, 08:30 AM">08:30 AM (Morning)</option>
-                          <option value="10:00 AM">10:00 AM (Morning)</option>
-                          <option value="11:30 AM">11:30 AM (Noon)</option>
-                        </select>
                       </div>
                     </div>
       
                     <div className="p-3 bg-light rounded-3 mb-3 border">
                       <div className="d-flex justify-content-between mb-1 small">
-                        <span className="text-muted">Selected Test:</span>
-                        <strong className="text-dark">{newBookingTest}</strong>
+                        <span className="text-muted">Total Tests:</span>
+                        <strong className="text-dark">{selectedTestsList.length}</strong>
                       </div>
                       <div className="d-flex justify-content-between mb-1 small">
                         <span className="text-muted">Sample Collection:</span>
                         <span className="text-success fw-semibold">Hospital Walk-In / Free Collection</span>
                       </div>
-                      <div className="d-flex justify-content-between mb-1 small">
-                        <span className="text-muted">Digital Report Delivery:</span>
-                        <span>Within 24 hours online</span>
-                      </div>
                       <div className="d-flex justify-content-between pt-2 border-top fw-bold text-dark">
                         <span>Estimated Total:</span>
                         <span className="text-success fs-6">
-                          ₹{(newBookingTest.includes('Health Checkup') ? 1499 : newBookingTest.includes('Lipid') ? 750 : newBookingTest.includes('Thyroid') ? 500 : newBookingTest.includes('Liver') ? 650 : newBookingTest.includes('HbA1c') ? 450 : 350).toLocaleString()}
+                          ₹{selectedTestsList.reduce((acc, test) => acc + test.price, 0).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -922,9 +1098,19 @@ export function AppointmentModals({
                     <button
                       type="button"
                       className="btn-book-lab"
-                      onClick={() => handleConfirmBookTest('lab')}
+                      onClick={() => handleConfirmBookTest('lab', selectedTestsList)}
+                      disabled={isBookingTest}
                     >
-                      <i className="fas fa-check-circle"></i> Confirm &amp; Book Lab Test
+                      {isBookingTest ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Booking...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-check-circle"></i> Confirm &amp; Book Lab Test
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
