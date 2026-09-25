@@ -22,6 +22,7 @@ export const ENDPOINTS = {
     CANCEL_REASON_MASTER: '/master/cancel-payment-reason/1',
     PAYMENT_GATEWAY: '/master/paymentGateway/getAll/1',
     GET_OPD_SESSIONS: '/master/opd-session/getAll/1',
+    GET_INVESTIGATIONS_PRICE: '/DgMasInvestigation/price-details',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
@@ -37,6 +38,8 @@ export const ENDPOINTS = {
     DOCTOR_DETAIL: '/mobileController/getDoctorDetailById',
     GET_APPOINTMENT_SLOTS: '/registration/getAppointmentSlots/1',
     UPDATE_PATIENT: '/registration/updatePatient',
+    BOOK_LAB_TEST: '/lab/updateDetailsAndBookingLaboratory',
+    BOOK_RADIOLOGY_TEST: '/radiology/updateDetailsAndBookingRadiology',
   },
   // USERS: {
   //   PROFILE: '/users/profile',
@@ -49,6 +52,7 @@ export const ENDPOINTS = {
     PROCESS_RADIOLOGY_PAYMENT: '/billing/processRadiologyPayment',
     OPD_PATIENT_BILL_DETAILS: '/billing/OPDPatientBillDetails',
     PROCESS_OPD_PAYMENT: '/billing/processOpdPayment',
+    GET_LAB_RADIOLOGY_BILLING_DETAILS: '/billing/getLabRadiologyBillingDetails',
   },
   PAYMENTS: {
     RAZORPAY_PREFILL: '/api/payments/razorpay-prefill',
