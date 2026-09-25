@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { apiService } from '../../../services/apiService';
 import { ENDPOINTS } from '../../../constants/apiEndpoints';
 import { loadRazorpayScript } from '../../../utils/loadRazorpay';
-import { PAYMENT_CONFIG, PAYMENT_MODE } from '../../../constants';
-
+import { PAYMENT_CONFIG, PAYMENT_MODE, BILLING_TYPE } from '../../../constants';
 export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuccess }) {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_MODE.ONLINE);
@@ -30,13 +29,32 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
         return;
       }
 
+      let investigationandPackegBillStatus = [];
+      if (config.billingType === BILLING_TYPE.LAB || config.billingType === BILLING_TYPE.RAD) {
+        try {
+          const detailRes = await apiService.get(`${ENDPOINTS.BILLING.GET_LAB_RADIOLOGY_BILLING_DETAILS}/${billHdId}?serviceCategoryCode=${config.billingType}`);
+          if (detailRes?.response?.[0]?.details) {
+            investigationandPackegBillStatus = detailRes.response[0].details.map(item => {
+              if (item.investigationId) {
+                return { id: item.investigationId, type: "i" };
+              } else if (item.packageId) {
+                return { id: item.packageId, type: "p" };
+              }
+              return null;
+            }).filter(Boolean);
+          }
+        } catch (e) {
+          console.error("Failed to fetch billing details", e);
+        }
+      }
+
       if (paymentMethod === PAYMENT_MODE.CASH) {
         const finalPayload = {
           billingType: config.billingType,
           billHeaderId: billHdId,
           amount: amount,
           mode: "cash",
-          investigationandPackegBillStatus: [],
+          investigationandPackegBillStatus,
           isPaymentUpdate: true,
           shouldNotCreateNewBilling: true,
           useExistingBillingHeader: true,
@@ -134,7 +152,7 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
                 billHeaderId: billHdId,
                 amount: amount,
                 mode: "online",
-                investigationandPackegBillStatus: [],
+                investigationandPackegBillStatus,
                 isPaymentUpdate: true,
                 shouldNotCreateNewBilling: true,
                 useExistingBillingHeader: true,
