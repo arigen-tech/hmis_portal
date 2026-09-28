@@ -29,6 +29,12 @@ export default function MyAppointments() {
   const [historyFilter, setHistoryFilter] = useState('all_history');
   const [diagnosticTab, setDiagnosticTab] = useState(APPOINTMENT_TYPE.RADIOLOGY);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination when tabs change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeMenu, activeSubTab, diagnosticTab, historyFilter]);
 
   // Refund Details State
   const [refundDetailsData, setRefundDetailsData] = useState(null);
@@ -63,10 +69,10 @@ export default function MyAppointments() {
     upcomingAppointments, pastAppointments,
     labAppointments, setLabAppointments,
     radiologyAppointments, setRadiologyAppointments,
-    isLoading
+    isLoading, totalPages, totalElements, pendingCounts
   } = useAppointments({
     activeMenu, activeSubTab, diagnosticTab, historyFilter, refreshTrigger,
-    parsedPatient, parsedHospital
+    parsedPatient, parsedHospital, page: currentPage - 1
   });
 
   // Payment Method Hook
@@ -313,6 +319,13 @@ export default function MyAppointments() {
       handleOpenPayModal={handleOpenPayModal}
       handleOpenReport={handleOpenReport}
       handleOpenDetails={handleOpenDetails}
+      currentPage={currentPage}
+      setCurrentPage={setCurrentPage}
+      totalPages={totalPages}
+      totalElements={totalElements}
+      activeSubTab={activeSubTab}
+      historyFilter={historyFilter}
+      setHistoryFilter={setHistoryFilter}
     />
   );
 
@@ -331,6 +344,13 @@ export default function MyAppointments() {
       handleOpenPayModal={handleOpenPayModal}
       handleOpenReport={handleOpenReport}
       handleOpenDetails={handleOpenDetails}
+      currentPage={currentPage}
+      setCurrentPage={setCurrentPage}
+      totalPages={totalPages}
+      totalElements={totalElements}
+      activeSubTab={activeSubTab}
+      historyFilter={historyFilter}
+      setHistoryFilter={setHistoryFilter}
     />
   );
 
@@ -357,7 +377,7 @@ export default function MyAppointments() {
                     </span>
                     <span>OPD Consultations</span>
                   </span>
-                  <span className="sidebar-badge">{upcomingAppointments.length}</span>
+                  <span className="sidebar-badge">{pendingCounts?.opd || 0}</span>
                 </button>
               </li>
               <li>
@@ -376,7 +396,7 @@ export default function MyAppointments() {
                     <span>Radiology Appointments</span>
                   </span>
                   <span className="sidebar-badge" style={{ background: '#EDE9FE', color: '#7C3AED' }}>
-                    {radiologyAppointments.length}
+                    {pendingCounts?.rad || 0}
                   </span>
                 </button>
               </li>
@@ -396,7 +416,7 @@ export default function MyAppointments() {
                     <span>Lab Appointments</span>
                   </span>
                   <span className="sidebar-badge" style={{ background: '#D1FAE5', color: '#059669' }}>
-                    {labAppointments.length}
+                    {pendingCounts?.lab || 0}
                   </span>
                 </button>
               </li>
@@ -435,6 +455,13 @@ export default function MyAppointments() {
                     handleOpenPrescriptionSlip={handleOpenPrescriptionSlip}
                     handleOpenOpdSlip={handleOpenOpdSlip}
                     handleOpenDetails={handleOpenDetails}
+                    currentPage={currentPage}
+                    setCurrentPage={setCurrentPage}
+                    totalPages={totalPages}
+                    totalElements={totalElements}
+                    activeSubTab={activeSubTab}
+                    historyFilter={historyFilter}
+                    setHistoryFilter={setHistoryFilter}
                   />
                 )}
 
@@ -451,6 +478,10 @@ export default function MyAppointments() {
                     handleOpenPrescriptionSlip={handleOpenPrescriptionSlip}
                     handleOpenInvoice={handleOpenInvoice}
                     handleOpenDetails={handleOpenDetails}
+                    currentPage={currentPage}
+                    setCurrentPage={setCurrentPage}
+                    totalPages={totalPages}
+                    totalElements={totalElements}
                   />
                 )}
               </>

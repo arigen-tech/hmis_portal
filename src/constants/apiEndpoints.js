@@ -30,6 +30,7 @@ export const ENDPOINTS = {
     OPD_PRESCRIPTION_SLIP: '/report/opdPrescriptionSlip',
     OPD_CASE_SHEET_REPORT: '/report/opdCaseSheetReport',
     OPD_INVOICE: '/report/opdInvoice',
+    NIS_MEDICINE_REPORT: '/report/nisMedicineReport',
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
     RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
     CANCEL_APPOINTMENT: '/registration/cancelAppointment',
