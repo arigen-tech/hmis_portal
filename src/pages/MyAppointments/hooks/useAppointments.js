@@ -10,13 +10,52 @@ export function useAppointments({
   historyFilter, 
   refreshTrigger,
   parsedPatient,
-  parsedHospital 
+  parsedHospital,
+  page = 0
 }) {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [pastAppointments, setPastAppointments] = useState([]);
   const [labAppointments, setLabAppointments] = useState([]);
   const [radiologyAppointments, setRadiologyAppointments] = useState([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingCounts, setPendingCounts] = useState({ opd: 0, lab: 0, rad: 0 });
+
+  // Fetch pending counts globally for the sidebar
+  useEffect(() => {
+    if (!parsedPatient || !parsedHospital) return;
+    
+    const fetchPendingCount = async (deptCode) => {
+      const queryParams = new URLSearchParams({
+        hospitalId: parsedHospital.id,
+        patientId: parsedPatient.patientId,
+        deptTypeCode: deptCode,
+        includeAllHistory: 'false',
+        page: 0,
+        size: 1,
+        visitStatus: API_VISIT_STATUS.NO
+      });
+      try {
+        const res = await apiService.get(`${ENDPOINTS.APPOINTMENTS.HISTORY_LIST}?${queryParams.toString()}`);
+        if (res.status === 200 && res.response) {
+          if (res.response.content) return res.response.totalElements || 0;
+          return res.response.length || 0;
+        }
+      } catch (e) {
+        console.error("Error fetching pending count for " + deptCode, e);
+      }
+      return 0;
+    };
+
+    Promise.all([
+      fetchPendingCount(DEPT_CODE.OPD),
+      fetchPendingCount(DEPT_CODE.LAB),
+      fetchPendingCount(DEPT_CODE.RAD)
+    ]).then(([opd, lab, rad]) => {
+      setPendingCounts({ opd, lab, rad });
+    });
+  }, [parsedPatient, parsedHospital, refreshTrigger]);
 
   useEffect(() => {
     let ignore = false;
@@ -38,8 +77,8 @@ export function useAppointments({
         if (activeMenu === APPOINTMENT_TYPE.OPD && activeSubTab === 'completed') {
           const queryParams = new URLSearchParams({
             patientId: parsedPatient.patientId,
-            page: 0,
-            size: 10
+            page: page,
+            size: 5
           });
           
           const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.OPD_REPORTS_LIST}?${queryParams.toString()}`);
@@ -47,21 +86,25 @@ export function useAppointments({
           if (!ignore && response.status === 200 && response.response && response.response.content) {
             const mapped = response.response.content.map(app => mapOpdCompletedItem(app, parsedHospital));
             setPastAppointments(mapped);
+            setTotalPages(response.response.totalPages || 0);
+            setTotalElements(response.response.totalElements || 0);
           }
         } else if (activeSubTab === 'cancelled') {
           const queryParams = new URLSearchParams({
             hospitalId: parsedHospital.id,
             patientId: parsedPatient.patientId,
             departmentType: deptCode,
-            page: 0,
-            size: 10
+            page: page,
+            size: 5
           });
           
           const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.CANCELLED_REFUND_LIST}?${queryParams.toString()}`);
           
           if (!ignore && response.status === 200 && response.response && response.response.content) {
             const mapped = response.response.content.map(app => mapCancelledItem(app, parsedHospital));
-            
+            setTotalPages(response.response.totalPages || 0);
+            setTotalElements(response.response.totalElements || 0);
+
             if (deptCode === DEPT_CODE.OPD) {
                setPastAppointments(mapped);
             } else if (deptCode === DEPT_CODE.LAB) {
@@ -78,8 +121,14 @@ export function useAppointments({
             hospitalId: parsedHospital.id,
             patientId: parsedPatient.patientId,
             deptTypeCode: deptCode,
-            includeAllHistory: historyFilter === 'all_history' ? 'true' : 'false'
+            page: page,
+            size: 5
           };
+          
+          if (activeSubTab === 'upcoming') {
+            paramsObj.includeAllHistory = historyFilter === 'all_history' ? 'true' : 'false';
+          }
+
           const queryParams = new URLSearchParams(paramsObj);
           
           if (activeSubTab === 'upcoming') {
@@ -91,7 +140,19 @@ export function useAppointments({
           const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.HISTORY_LIST}?${queryParams.toString()}`);
           
           if (!ignore && response.status === 200 && response.response) {
-            const mapped = response.response.map(app => mapHistoryItem(app, parsedHospital));
+            let dataToMap;
+            if (response.response.content) {
+               dataToMap = response.response.content;
+               setTotalPages(response.response.totalPages || 0);
+               setTotalElements(response.response.totalElements || 0);
+            } else {
+               const fullArray = response.response;
+               setTotalPages(Math.ceil(fullArray.length / 5));
+               setTotalElements(fullArray.length);
+               dataToMap = fullArray.slice(page * 5, (page + 1) * 5);
+            }
+            
+            const mapped = dataToMap.map(app => mapHistoryItem(app, parsedHospital));
             
             if (deptCode === DEPT_CODE.OPD) {
                if (activeSubTab === 'upcoming') {
@@ -123,7 +184,7 @@ export function useAppointments({
     return () => {
       ignore = true;
     };
-  }, [activeMenu, activeSubTab, diagnosticTab, historyFilter, refreshTrigger, parsedPatient, parsedHospital]);
+  }, [activeMenu, activeSubTab, diagnosticTab, historyFilter, refreshTrigger, parsedPatient, parsedHospital, page]);
 
   return {
     upcomingAppointments,
@@ -132,6 +193,9 @@ export function useAppointments({
     setLabAppointments,
     radiologyAppointments,
     setRadiologyAppointments,
-    isLoading
+    isLoading,
+    totalPages,
+    totalElements,
+    pendingCounts
   };
 }

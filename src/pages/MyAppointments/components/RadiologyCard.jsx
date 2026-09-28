@@ -10,8 +10,18 @@ export default function RadiologyCard({
   handleOpenCancel,
   handleOpenPayModal,
   handleOpenReport,
-  handleOpenDetails
+  handleOpenDetails,
+  currentPage,
+  setCurrentPage,
+  totalPages,
+  totalElements,
+  activeSubTab,
+  historyFilter,
+  setHistoryFilter
 }) {
+  const startItem = totalElements === 0 ? 0 : (currentPage - 1) * 5 + 1;
+  const endItem = Math.min(currentPage * 5, totalElements);
+
   return (
     <div className="appointments-section-card mb-4" id="radiology-appointments-section">
       {/* Lavender Banner */}
@@ -25,7 +35,18 @@ export default function RadiologyCard({
             <p className="section-subtitle">View, manage and take action on your radiology appointments.</p>
           </div>
         </div>
-        <div>
+        <div className="d-flex align-items-center gap-3">
+          {/* History Filter for Upcoming Radiology Appointments */}
+          {activeSubTab === 'upcoming' && (
+            <select
+              className="status-filter-select"
+              value={historyFilter}
+              onChange={(e) => setHistoryFilter(e.target.value)}
+            >
+              <option value="all_history">All History</option>
+              <option value="present">Present</option>
+            </select>
+          )}
           <button
             type="button"
             className="btn-book-radiology"
@@ -58,7 +79,7 @@ export default function RadiologyCard({
                   </div>
                 </td>
               </tr>
-            ) : radiologyAppointments.length === 0 ? (
+            ) : radiologyAppointments?.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center py-5 text-muted">
                   No radiology appointments found.
@@ -241,6 +262,36 @@ export default function RadiologyCard({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalElements > 0 && (
+        <div className="section-card-footer">
+          <div className="pagination-info">
+            Showing {startItem} to {endItem} of {totalElements} appointments
+          </div>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            >
+              <i className="fas fa-chevron-left"></i>
+            </button>
+            <button type="button" className="pagination-btn active">
+              {currentPage}
+            </button>
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            >
+              <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
