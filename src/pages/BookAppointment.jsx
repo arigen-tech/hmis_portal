@@ -1187,7 +1187,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                             })}
                           </>
                         ) : (
-                          <div className="text-muted small">No time slots available for this date.</div>
+                          <div className="text-danger small fw-bold">No time slots available for this date.</div>
                         )}
                       </div>
 
@@ -1304,7 +1304,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         type="button"
                         className="btn btn-outline-primary py-2.5 px-3 flex-grow-1 fw-semibold d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay at Hospital')}
-                        disabled={loadingPaymentType !== null}
+                        disabled={loadingPaymentType !== null || !selectedDate || !selectedSessionId || !selectedTimeSlot}
                       >
                         {loadingPaymentType === 'Pay at Hospital' ? (
                           <>
@@ -1322,7 +1322,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         type="button"
                         className="btn btn-primary py-2.5 px-3 flex-grow-1 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-2"
                         onClick={() => handleOpenPayment('Pay Now')}
-                        disabled={loadingPaymentType !== null}
+                        disabled={loadingPaymentType !== null || !selectedDate || !selectedSessionId || !selectedTimeSlot}
                       >
                         {loadingPaymentType === 'Pay Now' ? (
                           <>
