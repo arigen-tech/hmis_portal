@@ -10,8 +10,15 @@ export function PastOpdCard({
   handleOpenOpdSlip,
   handleOpenPrescriptionSlip,
   handleOpenInvoice,
-  handleOpenDetails
+  handleOpenDetails,
+  currentPage,
+  setCurrentPage,
+  totalPages,
+  totalElements
 }) {
+  const startItem = totalElements === 0 ? 0 : (currentPage - 1) * 5 + 1;
+  const endItem = Math.min(currentPage * 5, totalElements);
+
   return (
     <div className="appointments-section-card">
       <div className="section-card-header">
@@ -21,27 +28,13 @@ export function PastOpdCard({
           </div>
           <div>
             <h3 className="section-title">
-              {activeSubTab === 'cancelled' ? 'Cancelled' : 'Completed'} Appointments ({pastAppointments.length})
+              {activeSubTab === 'cancelled' ? 'Cancelled' : 'Completed'} Appointments ({totalElements})
             </h3>
             <p className="section-subtitle">
               View your {activeSubTab} OPD appointments.
             </p>
           </div>
         </div>
-
-        {/* History Filter */}
-        {activeSubTab !== 'completed' && (
-          <div>
-            <select
-              className="status-filter-select"
-              value={historyFilter}
-              onChange={(e) => setHistoryFilter(e.target.value)}
-            >
-              <option value="all_history">All History</option>
-              <option value="present">Present</option>
-            </select>
-          </div>
-        )}
       </div>
 
       <div className="ari-table-responsive">
@@ -67,7 +60,7 @@ export function PastOpdCard({
                   </div>
                 </td>
               </tr>
-            ) : pastAppointments.length === 0 ? (
+            ) : pastAppointments?.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center py-5 text-muted">
                   No {activeSubTab} appointments found.
@@ -82,10 +75,7 @@ export function PastOpdCard({
                       <span className="table-date-sub">{app.dayTime}</span>
                       {app.status === 'Cancelled' && app.cancellationDateTime && (
                         <div className="text-danger mt-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                          Cancelled: {new Date(app.cancellationDateTime).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit', hour12: true
-                          })}
+                          Cancelled: {app.cancellationDateTime}
                         </div>
                       )}
                     </div>
@@ -184,22 +174,34 @@ export function PastOpdCard({
       </div>
 
       {/* Pagination Controls */}
-      <div className="section-card-footer">
-        <div className="pagination-info">
-          Showing 1 to {pastAppointments.length} of {pastAppointments.length} appointments
+      {totalElements > 0 && (
+        <div className="section-card-footer">
+          <div className="pagination-info">
+            Showing {startItem} to {endItem} of {totalElements} appointments
+          </div>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            >
+              <i className="fas fa-chevron-left"></i>
+            </button>
+            <button type="button" className="pagination-btn active">
+              {currentPage}
+            </button>
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            >
+              <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
         </div>
-        <div className="pagination-controls">
-          <button type="button" className="pagination-btn" disabled>
-            <i className="fas fa-chevron-left"></i>
-          </button>
-          <button type="button" className="pagination-btn active">
-            1
-          </button>
-          <button type="button" className="pagination-btn" disabled>
-            <i className="fas fa-chevron-right"></i>
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

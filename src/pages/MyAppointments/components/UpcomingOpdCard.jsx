@@ -7,8 +7,21 @@ export function UpcomingOpdCard({
   handleOpenPayModal,
   handleOpenInvoice,
   handleOpenReschedule,
-  handleOpenCancel
+  handleOpenCancel,
+  handleOpenPrescriptionSlip,
+  handleOpenOpdSlip,
+  handleOpenDetails,
+  currentPage,
+  setCurrentPage,
+  totalPages,
+  totalElements,
+  activeSubTab,
+  historyFilter,
+  setHistoryFilter
 }) {
+  const startItem = totalElements === 0 ? 0 : (currentPage - 1) * 5 + 1;
+  const endItem = Math.min(currentPage * 5, totalElements);
+
   return (
     <div className="appointments-section-card">
       <div className="section-card-header">
@@ -17,9 +30,21 @@ export function UpcomingOpdCard({
             <i className="far fa-clock"></i>
           </div>
           <div>
-            <h3 className="section-title">Pending Appointments ({upcomingAppointments.length})</h3>
+            <h3 className="section-title">Pending Appointments ({totalElements})</h3>
             <p className="section-subtitle">Manage your upcoming OPD appointments.</p>
           </div>
+        </div>
+        
+        {/* History Filter */}
+        <div>
+          <select
+            className="status-filter-select"
+            value={historyFilter}
+            onChange={(e) => setHistoryFilter(e.target.value)}
+          >
+            <option value="all_history">All History</option>
+            <option value="present">Present</option>
+          </select>
         </div>
       </div>
 
@@ -44,7 +69,7 @@ export function UpcomingOpdCard({
                   </div>
                 </td>
               </tr>
-            ) : upcomingAppointments.length === 0 ? (
+            ) : upcomingAppointments?.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center py-5 text-muted">
                   No upcoming appointments found.
@@ -127,6 +152,36 @@ export function UpcomingOpdCard({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalElements > 0 && (
+        <div className="section-card-footer">
+          <div className="pagination-info">
+            Showing {startItem} to {endItem} of {totalElements} appointments
+          </div>
+          <div className="pagination-controls">
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            >
+              <i className="fas fa-chevron-left"></i>
+            </button>
+            <button type="button" className="pagination-btn active">
+              {currentPage}
+            </button>
+            <button
+              type="button"
+              className="pagination-btn"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            >
+              <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

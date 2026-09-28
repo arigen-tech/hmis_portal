@@ -747,7 +747,7 @@ export function AppointmentModals({
                         <i className="fas fa-info-circle me-1"></i> This appointment was cancelled. If you still need medical attention, please book a new test or contact hospital support.
                         {selectedAppointment.cancellationDateTime && (
                           <div className="mt-2">
-                            <strong>Cancelled On:</strong> {new Date(selectedAppointment.cancellationDateTime).toLocaleString()} <br />
+                            <strong>Cancelled On:</strong> {selectedAppointment.cancellationDateTime} <br />
                             <strong>Cancelled By:</strong> {selectedAppointment.cancelledBy || 'N/A'} <br />
                             <strong>Reason:</strong> {selectedAppointment.cancellationReason || 'N/A'}
                           </div>

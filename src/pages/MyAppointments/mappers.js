@@ -1,5 +1,37 @@
 import { PAYMENT_STATUS, VISIT_STATUS, API_VISIT_STATUS, APPOINTMENT_TYPE } from '../../constants';
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  if (dateStr.includes(' ')) {
+    return dateStr.split(' ')[0];
+  }
+  return dateStr;
+};
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return 'N/A';
+  const trimmed = timeStr.replace(/to/gi, '').trim();
+  if (trimmed === '') return 'N/A';
+  return timeStr;
+};
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  if (dateStr.includes(' ')) {
+    const parts = dateStr.split(' ');
+    const timeParts = parts[1].split(':');
+    if (timeParts.length >= 2) {
+      let hour = parseInt(timeParts[0], 10);
+      const min = timeParts[1];
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      hour = hour % 12;
+      hour = hour ? hour : 12;
+      return `${parts[0]} ${hour.toString().padStart(2, '0')}:${min} ${ampm}`;
+    }
+  }
+  return dateStr;
+};
+
 /**
  * Maps an item from the OPD_REPORTS_LIST endpoint.
  * @param {Object} app - Raw appointment data
@@ -12,7 +44,7 @@ export const mapOpdCompletedItem = (app, parsedHospital) => {
   if (when && when.includes(' ')) {
     const parts = when.split(' ');
     when = parts[0];
-    time = parts[1];
+    time = formatTime(parts[1]);
   }
 
   return {
@@ -45,8 +77,8 @@ export const mapOpdCompletedItem = (app, parsedHospital) => {
  * @returns {Object} Mapped appointment object
  */
 export const mapCancelledItem = (app, parsedHospital) => {
-  let when = app.appointmentDate || 'N/A';
-  let time = app.appointmentTime && app.appointmentTime !== ' to ' ? app.appointmentTime : 'N/A';
+  let when = formatDate(app.appointmentDate);
+  let time = formatTime(app.appointmentTime);
   
   const isLab = app.departmentName?.toLowerCase().includes('lab') || app.departmentName === 'Laboratory';
   const isRad = app.departmentName?.toLowerCase().includes('rad') || app.departmentName === 'Radiology';
@@ -78,11 +110,11 @@ export const mapCancelledItem = (app, parsedHospital) => {
     amount: app.billingAmount || 0,
     status: VISIT_STATUS.CANCELLED,
     type: isLab ? APPOINTMENT_TYPE.LAB : (isRad ? APPOINTMENT_TYPE.RADIOLOGY : APPOINTMENT_TYPE.OPD),
-    cancellationDateTime: app.cancellationDateTime,
+    cancellationDateTime: formatDateTime(app.cancellationDateTime),
     cancelledBy: app.cancelledBy,
     cancellationReason: app.cancellationReason,
     refundId: app.refundId,
-    refundDate: app.refundDate,
+    refundDate: formatDate(app.refundDate),
     billHdId: app.billingHeaderId,
     paymentGatewayModeName: app.paymentGatewayModeName
   };
@@ -95,10 +127,10 @@ export const mapCancelledItem = (app, parsedHospital) => {
  * @returns {Object} Mapped appointment object
  */
 export const mapHistoryItem = (app, parsedHospital) => {
-  let when = app.appointmentDate || 'N/A';
-  let time = app.appointmentStartTime || (app.appointmentDate && app.appointmentDate.includes(' ') ? app.appointmentDate.split(' ')[1] : 'N/A');
-  if (when && when.includes(' ')) {
-    when = when.split(' ')[0];
+  let when = formatDate(app.appointmentDate);
+  let time = formatTime(app.appointmentStartTime);
+  if (time === 'N/A' && app.appointmentDate && app.appointmentDate.includes(' ')) {
+    time = formatTime(app.appointmentDate.split(' ')[1]);
   }
   
   let mappedStatus = VISIT_STATUS.PENDING;
@@ -109,12 +141,6 @@ export const mapHistoryItem = (app, parsedHospital) => {
     mappedStatus = VISIT_STATUS.CANCELLED;
   } else if (app.visitStatus === API_VISIT_STATUS.NO) {
     mappedStatus = app.visitPaymentStatus === API_VISIT_STATUS.YES ? VISIT_STATUS.CONFIRMED : VISIT_STATUS.PENDING;
-    // For lab/radiology, the legacy code used 'Scheduled'. 
-    // We will use CONFIRMED/PENDING for both now, or map it specifically.
-    // The requirement is ONE canonical casing. So if it's Scheduled, use SCHEDULED.
-    // Wait, the original code did:
-    // opdStatus = app.visitPaymentStatus === 'y' ? 'confirmed' : 'pending'; diagStatus = 'Scheduled';
-    // Let's preserve that logic if needed, or use SCHEDULED for diagnostic.
   }
   
   const isLab = app.departmentName?.toLowerCase().includes('lab') || app.departmentName === 'Laboratory';
