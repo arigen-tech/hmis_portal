@@ -27,9 +27,10 @@ export function useMasterData() {
       try {
         const gatewayRes = await apiService.get(ENDPOINTS.MASTER.PAYMENT_GATEWAY);
         if (!ignore && gatewayRes?.status === 200 && gatewayRes?.response) {
-          setPaymentGateways(gatewayRes.response);
-          if (gatewayRes.response.length > 0) {
-            setInitialPaymentMethod(gatewayRes.response[0].gatewayCode);
+          const filteredGateways = gatewayRes.response.filter(g => g.gatewayCode === 'RAZORPAY');
+          setPaymentGateways(filteredGateways);
+          if (filteredGateways.length > 0) {
+            setInitialPaymentMethod(filteredGateways[0].gatewayCode);
           }
         }
       } catch (err) {
