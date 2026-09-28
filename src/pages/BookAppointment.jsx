@@ -578,7 +578,12 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                      setLoadingPaymentType(null);
                    }
                  },
-                 theme: { color: "#3399cc" }
+                 theme: { color: "#3399cc" },
+                 modal: {
+                   ondismiss: function() {
+                     setLoadingPaymentType(null);
+                   }
+                 }
                };
                
                const rzp = new window.Razorpay(options);

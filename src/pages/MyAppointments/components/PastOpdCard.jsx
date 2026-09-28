@@ -75,10 +75,7 @@ export function PastOpdCard({
                       <span className="table-date-sub">{app.dayTime}</span>
                       {app.status === 'Cancelled' && app.cancellationDateTime && (
                         <div className="text-danger mt-1" style={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                          Cancelled: {new Date(app.cancellationDateTime).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit', hour12: true
-                          })}
+                          Cancelled: {app.cancellationDateTime}
                         </div>
                       )}
                     </div>
