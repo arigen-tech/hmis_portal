@@ -179,6 +179,11 @@ export function usePayment({ patientDetails, showToast, closeModal, onPaymentSuc
         },
         theme: {
           color: "#3399cc"
+        },
+        modal: {
+          ondismiss: function() {
+            setIsProcessingPayment(false);
+          }
         }
       };
 
