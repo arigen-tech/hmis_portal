@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/apiService';
+import { ENDPOINTS } from '../constants/apiEndpoints';
+import PdfViewer from '../components/PdfViewer';
 
 export default function HealthRecords() {
   const [activeTab, setActiveTab] = useState('opd-prescriptions');
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [downloadSuccessToast, setDownloadSuccessToast] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+  
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfName, setPdfName] = useState('');
 
   // Filters state
   const [opdSpecialtyFilter, setOpdSpecialtyFilter] = useState('All Specialties');
@@ -22,74 +30,74 @@ export default function HealthRecords() {
     { id: 'discharge-summaries', label: 'Discharge Summaries', icon: 'fa-regular fa-file-lines' },
   ];
 
-  // 1. OPD & Prescriptions Mock Data
-  const opdData = [
-    {
-      id: 'opd-1',
-      date: '15 Sep 2026',
-      doctor: 'Dr. Sarah Johnson',
-      specialty: 'Cardiology',
-      reason: 'Hypertension',
-      vitals: { bp: '130/84 mmHg', pulse: '76 bpm', temp: '98.4 °F', spo2: '99%' },
-      medicines: [
-        { name: 'Telmisartan 40mg', dosage: '1 tablet', frequency: 'Once daily (Morning)', duration: '30 Days' },
-        { name: 'Amlodipine 5mg', dosage: '1 tablet', frequency: 'Once daily (Night)', duration: '30 Days' },
-      ],
-      instructions: 'Maintain a low-sodium diet and record BP every morning for 14 days.'
-    },
-    {
-      id: 'opd-2',
-      date: '28 Aug 2026',
-      doctor: 'Dr. Priya Sharma',
-      specialty: 'General Medicine',
-      reason: 'Fever',
-      vitals: { bp: '118/76 mmHg', pulse: '88 bpm', temp: '101.2 °F', spo2: '98%' },
-      medicines: [
-        { name: 'Paracetamol 650mg', dosage: '1 tablet', frequency: 'Thrice daily after meals', duration: '5 Days' },
-        { name: 'Pantoprazole 40mg', dosage: '1 tablet', frequency: 'Once daily (Empty stomach)', duration: '5 Days' },
-      ],
-      instructions: 'Drink plenty of warm fluids, rest well, and revisit if fever persists beyond 3 days.'
-    },
-    {
-      id: 'opd-3',
-      date: '12 Jun 2026',
-      doctor: 'Dr. Amit Kumar',
-      specialty: 'ENT',
-      reason: 'Ear Pain',
-      vitals: { bp: '122/80 mmHg', pulse: '72 bpm', temp: '98.6 °F', spo2: '99%' },
-      medicines: [
-        { name: 'Ofloxacin Ear Drops', dosage: '3 drops', frequency: 'Twice daily in left ear', duration: '7 Days' },
-        { name: 'Ibuprofen 400mg', dosage: '1 tablet', frequency: 'Twice daily SOS for pain', duration: '3 Days' },
-      ],
-      instructions: 'Avoid water entering the ear canal while bathing. Do not use cotton swabs.'
-    },
-    {
-      id: 'opd-4',
-      date: '04 Mar 2026',
-      doctor: 'Dr. Neha Gupta',
-      specialty: 'Dermatology',
-      reason: 'Skin Allergy',
-      vitals: { bp: '120/78 mmHg', pulse: '70 bpm', temp: '98.2 °F', spo2: '99%' },
-      medicines: [
-        { name: 'Levocetirizine 5mg', dosage: '1 tablet', frequency: 'Once daily at bedtime', duration: '10 Days' },
-        { name: 'Calamine & Liquid Paraffin Lotion', dosage: 'Apply gently', frequency: 'Twice daily', duration: '14 Days' },
-      ],
-      instructions: 'Avoid synthetic clothing and scented soaps. Use lukewarm water for baths.'
-    },
-    {
-      id: 'opd-5',
-      date: '10 Jan 2026',
-      doctor: 'Dr. Rajesh Kumar',
-      specialty: 'Orthopedics',
-      reason: 'Knee Pain',
-      vitals: { bp: '124/82 mmHg', pulse: '74 bpm', temp: '98.5 °F', spo2: '98%' },
-      medicines: [
-        { name: 'Aceclofenac + Paracetamol', dosage: '1 tablet', frequency: 'Twice daily after meals', duration: '7 Days' },
-        { name: 'Calcium & Vitamin D3', dosage: '1 tablet', frequency: 'Once daily after breakfast', duration: '30 Days' },
-      ],
-      instructions: 'Avoid squatting and cross-legged sitting. Continue quadriceps isometric exercises.'
-    },
-  ];
+  // 1. OPD & Prescriptions State
+  const [opdData, setOpdData] = useState([]);
+  const [opdPage, setOpdPage] = useState(0);
+  const [opdTotalElements, setOpdTotalElements] = useState(0);
+  const [opdLoading, setOpdLoading] = useState(false);
+  const opdPageSize = 5;
+
+  useEffect(() => {
+    if (activeTab === 'opd-prescriptions') {
+      const fetchOpdReports = async () => {
+        setOpdLoading(true);
+        try {
+          const hospitalStr = localStorage.getItem('selectedHospital');
+          let hospitalId = 12;
+          if (hospitalStr) {
+             const parsed = JSON.parse(hospitalStr);
+             if (parsed && parsed.id) hospitalId = parsed.id;
+          }
+          
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+             const parsedActive = JSON.parse(activeData);
+             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          
+          if (!patientId || !hospitalId) {
+             setOpdLoading(false);
+             return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.APPOINTMENTS.OPD_REPORTS_LIST}?page=${opdPage}&size=${opdPageSize}&hospitalId=${hospitalId}&patientId=${patientId}`);
+          
+          if (res && res.response && res.response.content) {
+            const mappedData = res.response.content.map(item => {
+              let date = item.visitDateTime || 'N/A';
+              if (date.includes(' ')) date = date.split(' ')[0];
+              
+              return {
+                id: item.visitId || Math.random().toString(),
+                date: date,
+                doctor: item.doctorName || 'Not Assigned',
+                specialty: item.specialty || 'General',
+                reason: item.departmentName || 'Consultation',
+                vitals: { bp: 'N/A', pulse: 'N/A', temp: 'N/A', spo2: 'N/A' },
+                medicines: [],
+                instructions: 'N/A',
+                nisNo: item.nisNo,
+                prescriptionStatus: item.prescriptionStatus,
+                prescriptionHdId: item.prescriptionHdId,
+                raw: item
+              };
+            });
+            setOpdData(mappedData);
+            setOpdTotalElements(res.response.totalElements || mappedData.length);
+          } else {
+             setOpdData([]);
+             setOpdTotalElements(0);
+          }
+        } catch (error) {
+          console.error("Failed to fetch OPD reports:", error);
+        } finally {
+          setOpdLoading(false);
+        }
+      };
+      fetchOpdReports();
+    }
+  }, [activeTab, opdPage]);
 
   // 2. Lab Reports Mock Data
   const labData = [
@@ -386,11 +394,84 @@ export default function HealthRecords() {
     setShowModal(true);
   };
 
-  const handleDownload = () => {
-    setDownloadSuccessToast(true);
+  const handleDownloadOpdSlip = async (record) => {
+    setDownloadingId(`${record.id}-opd`);
+    try {
+      const visitId = record.id;
+      const endpoint = `${ENDPOINTS.APPOINTMENTS.OPD_CASE_SHEET_REPORT}?visitId=${visitId}&flag=D`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`OPD Slip - ${record.date}`);
+    } catch (error) {
+      console.error("Failed to fetch OPD Slip PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadPrescriptionSlip = async (record) => {
+    if (!record.prescriptionHdId) {
+      alert("Prescription ID not found for this visit.");
+      return;
+    }
+    setDownloadingId(`${record.id}-rx`);
+    try {
+      const endpoint = `${ENDPOINTS.APPOINTMENTS.OPD_PRESCRIPTION_SLIP}?prescriptionId=${record.prescriptionHdId}&flag=D`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`Prescription - ${record.date}`);
+    } catch (error) {
+      console.error("Failed to fetch Prescription Slip PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadNisSlip = async (record) => {
+    if (!record.nisNo) {
+      alert("NIS Number not found for this visit.");
+      return;
+    }
+    setDownloadingId(`${record.id}-nis`);
+    try {
+      const hospitalStr = localStorage.getItem('selectedHospital');
+      let hospitalId = 12;
+      if (hospitalStr) {
+         const parsed = JSON.parse(hospitalStr);
+         if (parsed && parsed.id) hospitalId = parsed.id;
+      }
+      
+      const endpoint = `${ENDPOINTS.APPOINTMENTS.NIS_MEDICINE_REPORT}?hospitalId=${hospitalId}&visitId=${record.id}&flag=D`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`NIS Slip - ${record.date}`);
+    } catch (error) {
+      console.error("Failed to fetch NIS Slip PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!selectedDoc) return;
+    setIsDownloading(true);
+    // Simulate generic download for modal
     setTimeout(() => {
-      setDownloadSuccessToast(false);
-    }, 3000);
+      setIsDownloading(false);
+      setDownloadSuccessToast(true);
+      setTimeout(() => {
+        setDownloadSuccessToast(false);
+      }, 3000);
+    }, 1000);
   };
 
   return (
@@ -486,24 +567,52 @@ export default function HealthRecords() {
                           <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reason}</td>
                           <td className="py-2.5 px-3 text-nowrap">
                             <div className="d-flex gap-2">
+                              {item.nisNo && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-info btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                  style={{ fontSize: '0.8rem' }}
+                                  onClick={() => handleDownloadNisSlip(item)}
+                                  disabled={downloadingId === `${item.id}-nis`}
+                                >
+                                  {downloadingId === `${item.id}-nis` ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                  ) : (
+                                    <i className="fa-solid fa-file-invoice"></i>
+                                  )}
+                                  <span>NIS Slip</span>
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                className="btn btn-outline-secondary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
                                 style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('OPD Slip', item)}
+                                onClick={() => handleDownloadOpdSlip(item)}
+                                disabled={downloadingId === `${item.id}-opd`}
                               >
-                                <i className="fa-regular fa-file-lines"></i>
+                                {downloadingId === `${item.id}-opd` ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  <i className="fa-regular fa-file-lines"></i>
+                                )}
                                 <span>OPD Slip</span>
                               </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Prescription', item)}
-                              >
-                                <i className="fa-solid fa-file-prescription"></i>
-                                <span>Prescription</span>
-                              </button>
+                              {(item.prescriptionStatus === 'y' || item.prescriptionHdId) && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                  style={{ fontSize: '0.8rem' }}
+                                  onClick={() => handleDownloadPrescriptionSlip(item)}
+                                  disabled={downloadingId === `${item.id}-rx`}
+                                >
+                                  {downloadingId === `${item.id}-rx` ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                  ) : (
+                                    <i className="fa-solid fa-file-prescription"></i>
+                                  )}
+                                  <span>Prescription</span>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -515,32 +624,32 @@ export default function HealthRecords() {
                 {/* Table Footer / Pagination */}
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
                   <div className="text-secondary small">
-                    Showing 1 to {filteredOpd.length} of 12 visits
+                    Showing {Math.min(opdPage * opdPageSize + 1, opdTotalElements)} to {Math.min((opdPage + 1) * opdPageSize, opdTotalElements)} of {opdTotalElements} visits
                   </div>
                   <nav aria-label="OPD table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Previous">
+                      <li className={`page-item ${opdPage === 0 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Previous"
+                          onClick={() => setOpdPage(Math.max(0, opdPage - 1))}
+                          disabled={opdPage === 0}
+                        >
                           &lt;
                         </button>
                       </li>
                       <li className="page-item active">
                         <button className="page-link border-0 rounded bg-primary text-white py-1 px-2">
-                          1
+                          {opdPage + 1}
                         </button>
                       </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          2
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          3
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Next">
+                      <li className={`page-item ${(opdPage + 1) * opdPageSize >= opdTotalElements ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Next"
+                          onClick={() => setOpdPage(opdPage + 1)}
+                          disabled={(opdPage + 1) * opdPageSize >= opdTotalElements}
+                        >
                           &gt;
                         </button>
                       </li>
@@ -1406,8 +1515,18 @@ export default function HealthRecords() {
                     type="button"
                     className="btn btn-primary px-4 fw-medium"
                     onClick={handleDownload}
+                    disabled={isDownloading}
                   >
-                    <i className="fa-solid fa-download me-2"></i> Download PDF
+                    {isDownloading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-download me-2"></i> Download PDF
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1435,6 +1554,18 @@ export default function HealthRecords() {
           </div>
         </div>
       )}
+      
+      {/* PDF Viewer */}
+      <PdfViewer
+        pdfUrl={pdfUrl}
+        name={pdfName}
+        onClose={() => {
+          if (pdfUrl) {
+            URL.revokeObjectURL(pdfUrl);
+            setPdfUrl(null);
+          }
+        }}
+      />
     </div>
   );
 }
