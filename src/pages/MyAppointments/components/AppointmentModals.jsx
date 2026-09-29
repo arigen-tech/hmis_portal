@@ -61,6 +61,8 @@ export function AppointmentModals({
   const { patientDetails: parsedPatient, selectedHospital: parsedHospital } = useStoredSession();
   
   const [investigationList, setInvestigationList] = useState([]);
+  const [packageList, setPackageList] = useState([]);
+  const [testType, setTestType] = useState('investigation');
   const [investigationSearch, setInvestigationSearch] = useState('');
   const [filteredInvestigations, setFilteredInvestigations] = useState([]);
   const [selectedInvestigation, setSelectedInvestigation] = useState(null);
@@ -84,6 +86,7 @@ export function AppointmentModals({
       setSelectedTestsList([]);
       setInvestigationSearch('');
       setSelectedInvestigation(null);
+      setTestType('investigation');
       const fetchInvestigations = async () => {
         try {
           let genderCode = 'm';
@@ -100,8 +103,11 @@ export function AppointmentModals({
             : `${ENDPOINTS.MASTER.GET_INVESTIGATIONS_PRICE}?genderApplicable=${genderCode}`;
           const res = await apiService.get(url);
           if (res?.response) {
-            setInvestigationList(res.response);
-            setFilteredInvestigations(res.response);
+            const investigationsWithType = res.response.map(item => ({...item, type: 'i'}));
+            setInvestigationList(investigationsWithType);
+            if (testType === 'investigation') {
+              setFilteredInvestigations(investigationsWithType);
+            }
           }
         } catch (error) {
           console.error("Failed to load investigations", error);
@@ -117,8 +123,29 @@ export function AppointmentModals({
           console.error("Failed to load hospitals", error);
         }
       };
+      const fetchPackages = async () => {
+        if (modalType !== 'book-lab') return;
+        try {
+          const res = await apiService.get(ENDPOINTS.MASTER.GET_PACKAGES);
+          if (res?.response) {
+            const mappedPackages = res.response.map(pkg => ({
+              investigationId: pkg.packageId,
+              investigationName: pkg.packName,
+              price: pkg.actualCost,
+              type: 'p'
+            }));
+            setPackageList(mappedPackages);
+            if (testType === 'package') {
+              setFilteredInvestigations(mappedPackages);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load packages", error);
+        }
+      };
       fetchInvestigations();
       fetchHospitals();
+      fetchPackages();
 
       if (parsedHospital && parsedHospital.hospitalName) {
         setNewBookingHospital(parsedHospital.hospitalName);
@@ -127,16 +154,17 @@ export function AppointmentModals({
   }, [modalType, parsedPatient, parsedHospital, setNewBookingHospital]);
 
   useEffect(() => {
+    const currentList = testType === 'investigation' ? investigationList : packageList;
     if (investigationSearch) {
       setFilteredInvestigations(
-        investigationList.filter(item => 
+        currentList.filter(item => 
           item.investigationName.toLowerCase().includes(investigationSearch.toLowerCase())
         )
       );
     } else {
-      setFilteredInvestigations(investigationList);
+      setFilteredInvestigations(currentList);
     }
-  }, [investigationSearch, investigationList]);
+  }, [investigationSearch, investigationList, packageList, testType]);
 
   const handleSelectInvestigation = (item) => {
     setSelectedInvestigation(item);
@@ -982,6 +1010,43 @@ export function AppointmentModals({
                     </button>
                   </div>
                   <div className="modal-body-custom" style={{ overflow: 'visible' }}>
+                    <div className="mb-3 d-flex gap-4">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="testType"
+                          id="typeInvestigation"
+                          checked={testType === 'investigation'}
+                          onChange={() => {
+                            setTestType('investigation');
+                            setInvestigationSearch('');
+                            setSelectedInvestigation(null);
+                          }}
+                        />
+                        <label className="form-check-label fw-bold" htmlFor="typeInvestigation">
+                          Investigation
+                        </label>
+                      </div>
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="testType"
+                          id="typePackage"
+                          checked={testType === 'package'}
+                          onChange={() => {
+                            setTestType('package');
+                            setInvestigationSearch('');
+                            setSelectedInvestigation(null);
+                          }}
+                        />
+                        <label className="form-check-label fw-bold" htmlFor="typePackage">
+                          Package
+                        </label>
+                      </div>
+                    </div>
+                    
                     <div className="mb-3 position-relative" ref={searchRef}>
                       <label className="form-label fw-bold">Search & Select Test</label>
                       <div className="input-group">

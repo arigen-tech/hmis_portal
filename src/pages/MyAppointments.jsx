@@ -244,7 +244,7 @@ export default function MyAppointments() {
             checkStatus: true,
             actualAmount: test.price || 1,
             discountedAmount: 0,
-            type: "i"
+            type: test.type || "i"
           }))
         };
         

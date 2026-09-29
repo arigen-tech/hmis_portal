@@ -23,6 +23,7 @@ export const ENDPOINTS = {
     PAYMENT_GATEWAY: '/master/paymentGateway/getAll/1',
     GET_OPD_SESSIONS: '/master/opd-session/getAll/1',
     GET_INVESTIGATIONS_PRICE: '/DgMasInvestigation/price-details',
+    GET_PACKAGES: '/package-investigation-mapping/getAllPackageMap/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
