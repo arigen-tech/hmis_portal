@@ -45,6 +45,8 @@ export function AppointmentModals({
   // Details Modal
   refundDetailsData,
   loadingRefundDetails,
+  billingDetailsData,
+  loadingBillingDetails,
 
   // Book Test Modal
   newBookingTest,
@@ -821,6 +823,82 @@ export function AppointmentModals({
                             )}
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-footer-custom">
+                    <button className="btn btn-primary px-4" onClick={() => closeModal()}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL 6.5: BILLING DETAILS */}
+            {modalType === 'billing-details' && selectedAppointment && (
+              <div className="modal-backdrop-custom" onClick={() => closeModal()}>
+                <div className="modal-dialog-custom" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header-custom">
+                    <h5>Billing &amp; Investigation Details</h5>
+                    <button className="modal-close-btn" onClick={() => closeModal()}>
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                  <div className="modal-body-custom">
+                    {loadingBillingDetails ? (
+                      <div className="text-center py-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-3 text-muted">Fetching details...</p>
+                      </div>
+                    ) : billingDetailsData ? (
+                      <div>
+                        <div className="p-3 bg-light rounded-3 mb-4">
+                          <div className="fw-bold text-dark fs-5">{billingDetailsData.billingType}</div>
+                          <div className="text-primary fw-medium">{billingDetailsData.department}</div>
+                        </div>
+
+                        <div className="row g-3 mb-4">
+                          <div className="col-6">
+                            <div className="text-muted small">Patient Name</div>
+                            <div className="fw-bold">{billingDetailsData.patientName}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Amount</div>
+                            <div className="fw-bold">₹{billingDetailsData.amount.toLocaleString()}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Date</div>
+                            <div className="fw-bold">{new Date(billingDetailsData.visitDate).toLocaleDateString()}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Payment Status</div>
+                            <div className="fw-bold">{billingDetailsData.billingStatus === 'n' ? 'Pending' : 'Paid'}</div>
+                          </div>
+                        </div>
+
+                        {billingDetailsData.details && billingDetailsData.details.length > 0 && (
+                          <div className="mt-4">
+                            <h6 className="fw-bold mb-3 border-bottom pb-2">Investigations Added</h6>
+                            <ul className="list-group">
+                              {billingDetailsData.details.map((item, index) => (
+                                <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                                  <div>
+                                    <div className="fw-bold text-dark">{item.itemName}</div>
+                                    <small className="text-muted">Quantity: {item.quantity}</small>
+                                  </div>
+                                  <div className="fw-bold">₹{item.netAmount.toLocaleString()}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-5 text-muted">
+                        No billing details available.
                       </div>
                     )}
                   </div>

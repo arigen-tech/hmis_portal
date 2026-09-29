@@ -40,6 +40,10 @@ export default function MyAppointments() {
   const [refundDetailsData, setRefundDetailsData] = useState(null);
   const [loadingRefundDetails, setLoadingRefundDetails] = useState(false);
 
+  // Billing Details State
+  const [billingDetailsData, setBillingDetailsData] = useState(null);
+  const [loadingBillingDetails, setLoadingBillingDetails] = useState(false);
+
   // Extracted Hooks
   const { toastMessage, showToast, hideToast } = useToast();
   const { patientDetails: parsedPatient, selectedHospital: parsedHospital } = useStoredSession();
@@ -209,6 +213,23 @@ export default function MyAppointments() {
     }
   };
 
+  const handleOpenBillingDetails = async (app) => {
+    setBillingDetailsData(null);
+    openModal('billing-details', app);
+    setLoadingBillingDetails(true);
+    try {
+      const serviceCode = app.type === 'radiology' ? 'RAD_SC' : 'LAB_SC';
+      const response = await apiService.get(`${ENDPOINTS.BILLING.GET_LAB_RADIOLOGY_BILLING_DETAILS}/${app.billHdId}?serviceCategoryCode=${serviceCode}`);
+      if (response?.response && response.response.length > 0) {
+        setBillingDetailsData(response.response[0]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch billing details:", error);
+    } finally {
+      setLoadingBillingDetails(false);
+    }
+  };
+
   const handleOpenBookModal = (type) => {
     const today = new Date().toISOString().split('T')[0];
     if (type === APPOINTMENT_TYPE.LAB) {
@@ -319,6 +340,7 @@ export default function MyAppointments() {
       handleOpenPayModal={handleOpenPayModal}
       handleOpenReport={handleOpenReport}
       handleOpenDetails={handleOpenDetails}
+      handleOpenBillingDetails={handleOpenBillingDetails}
       currentPage={currentPage}
       setCurrentPage={setCurrentPage}
       totalPages={totalPages}
@@ -344,6 +366,7 @@ export default function MyAppointments() {
       handleOpenPayModal={handleOpenPayModal}
       handleOpenReport={handleOpenReport}
       handleOpenDetails={handleOpenDetails}
+      handleOpenBillingDetails={handleOpenBillingDetails}
       currentPage={currentPage}
       setCurrentPage={setCurrentPage}
       totalPages={totalPages}
@@ -586,6 +609,8 @@ export default function MyAppointments() {
           showToast={showToast}
           refundDetailsData={refundDetailsData}
           loadingRefundDetails={loadingRefundDetails}
+          billingDetailsData={billingDetailsData}
+          loadingBillingDetails={loadingBillingDetails}
           newBookingTest={newBookingTest}
           setNewBookingTest={setNewBookingTest}
           newBookingHospital={newBookingHospital}

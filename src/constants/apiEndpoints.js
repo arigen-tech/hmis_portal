@@ -54,7 +54,7 @@ export const ENDPOINTS = {
     PROCESS_RADIOLOGY_PAYMENT: '/billing/processRadiologyPayment',
     OPD_PATIENT_BILL_DETAILS: '/billing/OPDPatientBillDetails',
     PROCESS_OPD_PAYMENT: '/billing/processOpdPayment',
-    GET_LAB_RADIOLOGY_BILLING_DETAILS: '/billing/getLabRadiologyBillingDetails',
+    GET_LAB_RADIOLOGY_BILLING_DETAILS: '/billing/getLabRadiologyBillingDetailsAll',
   },
   PAYMENTS: {
     RAZORPAY_PREFILL: '/api/payments/razorpay-prefill',
