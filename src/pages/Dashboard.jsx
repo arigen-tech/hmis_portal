@@ -10,6 +10,12 @@ export default function Dashboard() {
   const [activePatient, setActivePatient] = useState(null);
 
   const [appointments, setAppointments] = useState([]);
+  const [counts, setCounts] = useState({
+    totalAppointments: 0,
+    upcoming: 0,
+    prescriptions: 0,
+    medicalRecords: 15
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -44,6 +50,26 @@ export default function Dashboard() {
           deptTypeCode: 'OPD,LAB,RAD',
           includeAllHistory: 'false'
         }).toString();
+        
+        try {
+          const countParams = new URLSearchParams({
+            hospitalId: parsedHospital.id,
+            patientId: parsedPatient.patientId
+          }).toString();
+          
+          const countsResponse = await apiService.get(`${ENDPOINTS.APPOINTMENTS.VISIT_STATUS_COUNTS}?${countParams}`);
+          
+          if (countsResponse.status === 200 && countsResponse.response) {
+            setCounts(prev => ({
+              ...prev,
+              totalAppointments: countsResponse.response.totalCompleteCount || 0,
+              upcoming: countsResponse.response.totalPendingCount || 0,
+              prescriptions: countsResponse.response.prescriptionCount || 0
+            }));
+          }
+        } catch (error) {
+          console.error("Failed to fetch counts:", error);
+        }
         
         const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.HISTORY_LIST}?${queryParams}`);
         
@@ -121,7 +147,7 @@ export default function Dashboard() {
               <div className="stats-icon icon-primary">
                 <i className="fas fa-calendar-check"></i>
               </div>
-              <h3 className="mt-3">12</h3>
+              <h3 className="mt-3">{counts.totalAppointments}</h3>
               <p className="text-muted mb-0">Total Appointments</p>
             </div>
           </div>
@@ -131,7 +157,7 @@ export default function Dashboard() {
               <div className="stats-icon icon-success">
                 <i className="fas fa-clock"></i>
               </div>
-              <h3 className="mt-3">3</h3>
+              <h3 className="mt-3">{counts.upcoming}</h3>
               <p className="text-muted mb-0">Upcoming</p>
             </div>
           </div>
@@ -141,7 +167,7 @@ export default function Dashboard() {
               <div className="stats-icon icon-warning">
                 <i className="fas fa-prescription"></i>
               </div>
-              <h3 className="mt-3">8</h3>
+              <h3 className="mt-3">{counts.prescriptions}</h3>
               <p className="text-muted mb-0">Prescriptions</p>
             </div>
           </div>
@@ -151,7 +177,7 @@ export default function Dashboard() {
               <div className="stats-icon icon-danger">
                 <i className="fas fa-file-medical"></i>
               </div>
-              <h3 className="mt-3">15</h3>
+              <h3 className="mt-3">{counts.medicalRecords}</h3>
               <p className="text-muted mb-0">Medical Records</p>
             </div>
           </div>

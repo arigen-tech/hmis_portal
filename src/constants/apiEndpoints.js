@@ -42,6 +42,7 @@ export const ENDPOINTS = {
     UPDATE_PATIENT: '/registration/updatePatient',
     BOOK_LAB_TEST: '/lab/updateDetailsAndBookingLaboratory',
     BOOK_RADIOLOGY_TEST: '/radiology/updateDetailsAndBookingRadiology',
+    VISIT_STATUS_COUNTS: '/mobileController/getPatientVisitStatusCounts',
   },
   // USERS: {
   //   PROFILE: '/users/profile',
