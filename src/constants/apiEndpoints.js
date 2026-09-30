@@ -63,5 +63,9 @@ export const ENDPOINTS = {
     VERIFY: '/api/payments/verify',
     STATUS: '/api/payments/status',
   },
+  LAB: {
+    INVESTIGATIONS_REPORT: '/lab/investigationsReport/all',
+    PDF_REPORT: '/report/labInvestigationReport',
+  },
   // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
 };
