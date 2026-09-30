@@ -45,6 +45,8 @@ export function AppointmentModals({
   // Details Modal
   refundDetailsData,
   loadingRefundDetails,
+  billingDetailsData,
+  loadingBillingDetails,
 
   // Book Test Modal
   newBookingTest,
@@ -61,6 +63,8 @@ export function AppointmentModals({
   const { patientDetails: parsedPatient, selectedHospital: parsedHospital } = useStoredSession();
   
   const [investigationList, setInvestigationList] = useState([]);
+  const [packageList, setPackageList] = useState([]);
+  const [testType, setTestType] = useState('investigation');
   const [investigationSearch, setInvestigationSearch] = useState('');
   const [filteredInvestigations, setFilteredInvestigations] = useState([]);
   const [selectedInvestigation, setSelectedInvestigation] = useState(null);
@@ -84,6 +88,7 @@ export function AppointmentModals({
       setSelectedTestsList([]);
       setInvestigationSearch('');
       setSelectedInvestigation(null);
+      setTestType('investigation');
       const fetchInvestigations = async () => {
         try {
           let genderCode = 'm';
@@ -100,8 +105,11 @@ export function AppointmentModals({
             : `${ENDPOINTS.MASTER.GET_INVESTIGATIONS_PRICE}?genderApplicable=${genderCode}`;
           const res = await apiService.get(url);
           if (res?.response) {
-            setInvestigationList(res.response);
-            setFilteredInvestigations(res.response);
+            const investigationsWithType = res.response.map(item => ({...item, type: 'i'}));
+            setInvestigationList(investigationsWithType);
+            if (testType === 'investigation') {
+              setFilteredInvestigations(investigationsWithType);
+            }
           }
         } catch (error) {
           console.error("Failed to load investigations", error);
@@ -117,8 +125,29 @@ export function AppointmentModals({
           console.error("Failed to load hospitals", error);
         }
       };
+      const fetchPackages = async () => {
+        if (modalType !== 'book-lab') return;
+        try {
+          const res = await apiService.get(ENDPOINTS.MASTER.GET_PACKAGES);
+          if (res?.response) {
+            const mappedPackages = res.response.map(pkg => ({
+              investigationId: pkg.packageId,
+              investigationName: pkg.packName,
+              price: pkg.actualCost,
+              type: 'p'
+            }));
+            setPackageList(mappedPackages);
+            if (testType === 'package') {
+              setFilteredInvestigations(mappedPackages);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load packages", error);
+        }
+      };
       fetchInvestigations();
       fetchHospitals();
+      fetchPackages();
 
       if (parsedHospital && parsedHospital.hospitalName) {
         setNewBookingHospital(parsedHospital.hospitalName);
@@ -127,16 +156,17 @@ export function AppointmentModals({
   }, [modalType, parsedPatient, parsedHospital, setNewBookingHospital]);
 
   useEffect(() => {
+    const currentList = testType === 'investigation' ? investigationList : packageList;
     if (investigationSearch) {
       setFilteredInvestigations(
-        investigationList.filter(item => 
+        currentList.filter(item => 
           item.investigationName.toLowerCase().includes(investigationSearch.toLowerCase())
         )
       );
     } else {
-      setFilteredInvestigations(investigationList);
+      setFilteredInvestigations(currentList);
     }
-  }, [investigationSearch, investigationList]);
+  }, [investigationSearch, investigationList, packageList, testType]);
 
   const handleSelectInvestigation = (item) => {
     setSelectedInvestigation(item);
@@ -804,6 +834,82 @@ export function AppointmentModals({
                 </div>
               </div>
             )}
+
+            {/* MODAL 6.5: BILLING DETAILS */}
+            {modalType === 'billing-details' && selectedAppointment && (
+              <div className="modal-backdrop-custom" onClick={() => closeModal()}>
+                <div className="modal-dialog-custom" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header-custom">
+                    <h5>Billing &amp; Investigation Details</h5>
+                    <button className="modal-close-btn" onClick={() => closeModal()}>
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                  <div className="modal-body-custom">
+                    {loadingBillingDetails ? (
+                      <div className="text-center py-5">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-3 text-muted">Fetching details...</p>
+                      </div>
+                    ) : billingDetailsData ? (
+                      <div>
+                        <div className="p-3 bg-light rounded-3 mb-4">
+                          <div className="fw-bold text-dark fs-5">{billingDetailsData.billingType}</div>
+                          <div className="text-primary fw-medium">{billingDetailsData.department}</div>
+                        </div>
+
+                        <div className="row g-3 mb-4">
+                          <div className="col-6">
+                            <div className="text-muted small">Patient Name</div>
+                            <div className="fw-bold">{billingDetailsData.patientName}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Amount</div>
+                            <div className="fw-bold">₹{billingDetailsData.amount.toLocaleString()}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Date</div>
+                            <div className="fw-bold">{new Date(billingDetailsData.visitDate).toLocaleDateString()}</div>
+                          </div>
+                          <div className="col-6">
+                            <div className="text-muted small">Payment Status</div>
+                            <div className="fw-bold">{billingDetailsData.billingStatus === 'n' ? 'Pending' : 'Paid'}</div>
+                          </div>
+                        </div>
+
+                        {billingDetailsData.details && billingDetailsData.details.length > 0 && (
+                          <div className="mt-4">
+                            <h6 className="fw-bold mb-3 border-bottom pb-2">Investigations Added</h6>
+                            <ul className="list-group">
+                              {billingDetailsData.details.map((item, index) => (
+                                <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                                  <div>
+                                    <div className="fw-bold text-dark">{item.itemName}</div>
+                                    <small className="text-muted">Quantity: {item.quantity}</small>
+                                  </div>
+                                  <div className="fw-bold">₹{item.netAmount.toLocaleString()}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-5 text-muted">
+                        No billing details available.
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-footer-custom">
+                    <button className="btn btn-primary px-4" onClick={() => closeModal()}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
       
             {/* MODAL 7: BOOK RADIOLOGY TEST (Interactive Modal) */}
             {modalType === 'book-radiology' && (
@@ -982,6 +1088,43 @@ export function AppointmentModals({
                     </button>
                   </div>
                   <div className="modal-body-custom" style={{ overflow: 'visible' }}>
+                    <div className="mb-3 d-flex gap-4">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="testType"
+                          id="typeInvestigation"
+                          checked={testType === 'investigation'}
+                          onChange={() => {
+                            setTestType('investigation');
+                            setInvestigationSearch('');
+                            setSelectedInvestigation(null);
+                          }}
+                        />
+                        <label className="form-check-label fw-bold" htmlFor="typeInvestigation">
+                          Investigation
+                        </label>
+                      </div>
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name="testType"
+                          id="typePackage"
+                          checked={testType === 'package'}
+                          onChange={() => {
+                            setTestType('package');
+                            setInvestigationSearch('');
+                            setSelectedInvestigation(null);
+                          }}
+                        />
+                        <label className="form-check-label fw-bold" htmlFor="typePackage">
+                          Package
+                        </label>
+                      </div>
+                    </div>
+                    
                     <div className="mb-3 position-relative" ref={searchRef}>
                       <label className="form-label fw-bold">Search & Select Test</label>
                       <div className="input-group">

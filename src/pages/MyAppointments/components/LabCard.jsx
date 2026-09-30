@@ -11,6 +11,7 @@ export default function LabCard({
   handleOpenPayModal,
   handleOpenReport,
   handleOpenDetails,
+  handleOpenBillingDetails,
   currentPage,
   setCurrentPage,
   totalPages,
@@ -158,6 +159,13 @@ export default function LabCard({
                           <button
                             type="button"
                             className="btn-action-outline"
+                            onClick={() => handleOpenBillingDetails(app)}
+                          >
+                            View Detail
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action-outline"
                             onClick={() => handleOpenInvoice(app)}
                             disabled={loadingPdfId === `${app.id}_invoice`}
                           >
@@ -192,6 +200,13 @@ export default function LabCard({
                             onClick={() => handleOpenPayModal(app)}
                           >
                             Pay Now
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action-outline"
+                            onClick={() => handleOpenBillingDetails(app)}
+                          >
+                            View Detail
                           </button>
                           <button
                             type="button"

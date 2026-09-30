@@ -37,6 +37,20 @@ export default function HealthRecords() {
   const [opdLoading, setOpdLoading] = useState(false);
   const opdPageSize = 5;
 
+  const [labData, setLabData] = useState([]);
+  const [labPage, setLabPage] = useState(0);
+  const [labTotalElements, setLabTotalElements] = useState(0);
+  const [labTotalPages, setLabTotalPages] = useState(0);
+  const [labLoading, setLabLoading] = useState(false);
+  const labPageSize = 5;
+
+  const [ipdLabData, setIpdLabData] = useState([]);
+  const [ipdLabPage, setIpdLabPage] = useState(0);
+  const [ipdLabTotalElements, setIpdLabTotalElements] = useState(0);
+  const [ipdLabTotalPages, setIpdLabTotalPages] = useState(0);
+  const [ipdLabLoading, setIpdLabLoading] = useState(false);
+  const ipdLabPageSize = 5;
+
   useEffect(() => {
     if (activeTab === 'opd-prescriptions') {
       const fetchOpdReports = async () => {
@@ -99,87 +113,118 @@ export default function HealthRecords() {
     }
   }, [activeTab, opdPage]);
 
-  // 2. Lab Reports Mock Data
-  const labData = [
-    {
-      id: 'lab-1',
-      date: '25 Sep 2026',
-      investigation: 'Complete Blood Count (CBC)',
-      result: '12.5',
-      unit: 'g/dL',
-      range: '12.0 - 16.0',
-      reportDate: '25 Sep 2026',
-      status: 'Normal',
-      subTests: [
-        { name: 'Hemoglobin', value: '12.5', unit: 'g/dL', range: '12.0 - 16.0', status: 'Normal' },
-        { name: 'Total Leucocyte Count (TLC)', value: '6,800', unit: '/cu mm', range: '4,000 - 11,000', status: 'Normal' },
-        { name: 'Platelet Count', value: '2.4', unit: 'Lakh/cu mm', range: '1.5 - 4.5', status: 'Normal' },
-        { name: 'RBC Count', value: '4.3', unit: 'mill/cu mm', range: '3.8 - 5.2', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'lab-2',
-      date: '18 Aug 2026',
-      investigation: 'Thyroid Profile (T3, T4, TSH)',
-      result: '2.8',
-      unit: 'µIU/mL',
-      range: '0.4 - 4.0',
-      reportDate: '19 Aug 2026',
-      status: 'Normal',
-      subTests: [
-        { name: 'Total Triiodothyronine (T3)', value: '1.2', unit: 'ng/mL', range: '0.8 - 2.0', status: 'Normal' },
-        { name: 'Total Thyroxine (T4)', value: '7.9', unit: 'µg/dL', range: '5.1 - 14.1', status: 'Normal' },
-        { name: 'Thyroid Stimulating Hormone (TSH)', value: '2.8', unit: 'µIU/mL', range: '0.4 - 4.0', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'lab-3',
-      date: '05 Jul 2026',
-      investigation: 'Liver Function Test (LFT)',
-      result: '42',
-      unit: 'U/L',
-      range: '10 - 50',
-      reportDate: '06 Jul 2026',
-      status: 'Normal',
-      subTests: [
-        { name: 'SGOT / AST', value: '34', unit: 'U/L', range: '10 - 45', status: 'Normal' },
-        { name: 'SGPT / ALT', value: '42', unit: 'U/L', range: '10 - 50', status: 'Normal' },
-        { name: 'Bilirubin Total', value: '0.8', unit: 'mg/dL', range: '0.2 - 1.2', status: 'Normal' },
-        { name: 'Serum Alkaline Phosphatase', value: '92', unit: 'U/L', range: '30 - 120', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'lab-4',
-      date: '12 Jun 2026',
-      investigation: 'Kidney Function Test (KFT)',
-      result: '1.3',
-      unit: 'mg/dL',
-      range: '0.6 - 1.2',
-      reportDate: '13 Jun 2026',
-      status: 'Borderline High',
-      subTests: [
-        { name: 'Blood Urea', value: '28', unit: 'mg/dL', range: '15 - 40', status: 'Normal' },
-        { name: 'Serum Creatinine', value: '1.3', unit: 'mg/dL', range: '0.6 - 1.2', status: 'High' },
-        { name: 'Serum Uric Acid', value: '5.4', unit: 'mg/dL', range: '3.5 - 7.2', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'lab-5',
-      date: '15 Mar 2026',
-      investigation: 'Lipid Profile',
-      result: '210',
-      unit: 'mg/dL',
-      range: '< 200',
-      reportDate: '16 Mar 2026',
-      status: 'Borderline High',
-      subTests: [
-        { name: 'Total Cholesterol', value: '210', unit: 'mg/dL', range: '< 200', status: 'High' },
-        { name: 'HDL Cholesterol', value: '46', unit: 'mg/dL', range: '> 40', status: 'Normal' },
-        { name: 'LDL Cholesterol', value: '132', unit: 'mg/dL', range: '< 100', status: 'High' },
-        { name: 'Triglycerides', value: '158', unit: 'mg/dL', range: '< 150', status: 'Borderline' }
-      ]
-    },
-  ];
+  // 2. Lab Reports Logic
+  useEffect(() => {
+    if (activeTab === 'lab-reports') {
+      const fetchLabReports = async () => {
+        setLabLoading(true);
+        try {
+          const hospitalStr = localStorage.getItem('selectedHospital');
+          let hospitalId = 12;
+          if (hospitalStr) {
+             const parsed = JSON.parse(hospitalStr);
+             if (parsed && parsed.id) hospitalId = parsed.id;
+          }
+          
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+             const parsedActive = JSON.parse(activeData);
+             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          
+          if (!patientId || !hospitalId) {
+             setLabLoading(false);
+             return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?page=${labPage}&size=${labPageSize}&hospitalId=${hospitalId}&patientId=${patientId}`);
+          
+          if (res && res.response && res.response.content) {
+            setLabData(res.response.content);
+            setLabTotalElements(res.response.totalElements || res.response.content.length);
+            setLabTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
+          } else {
+             setLabData([]);
+             setLabTotalElements(0);
+             setLabTotalPages(0);
+          }
+        } catch (error) {
+          console.error("Failed to fetch Lab reports:", error);
+        } finally {
+          setLabLoading(false);
+        }
+      };
+      fetchLabReports();
+    }
+  }, [activeTab, labPage]);
+
+  // 2b. IPD Lab Reports Logic
+  useEffect(() => {
+    if (activeTab === 'ipd-lab-reports') {
+      const fetchIpdLabReports = async () => {
+        setIpdLabLoading(true);
+        try {
+          const hospitalStr = localStorage.getItem('selectedHospital');
+          let hospitalId = 12;
+          if (hospitalStr) {
+             const parsed = JSON.parse(hospitalStr);
+             if (parsed && parsed.id) hospitalId = parsed.id;
+          }
+          
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+             const parsedActive = JSON.parse(activeData);
+             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          
+          if (!patientId || !hospitalId) {
+             setIpdLabLoading(false);
+             return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?page=${ipdLabPage}&size=${ipdLabPageSize}&hospitalId=${hospitalId}&patientId=${patientId}&IPD=true`);
+          
+          if (res && res.response && res.response.content) {
+            setIpdLabData(res.response.content);
+            setIpdLabTotalElements(res.response.totalElements || res.response.content.length);
+            setIpdLabTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
+          } else {
+             setIpdLabData([]);
+             setIpdLabTotalElements(0);
+             setIpdLabTotalPages(0);
+          }
+        } catch (error) {
+          console.error("Failed to fetch IPD Lab reports:", error);
+        } finally {
+          setIpdLabLoading(false);
+        }
+      };
+      fetchIpdLabReports();
+    }
+  }, [activeTab, ipdLabPage]);
+
+  const handleDownloadLabReport = async (record) => {
+    if (!record.orderHdId) {
+      alert("Order ID not found for this report.");
+      return;
+    }
+    setDownloadingId(`${record.resultEntryDetailsId}-lab`);
+    try {
+      const endpoint = `${ENDPOINTS.LAB.PDF_REPORT}?orderHdId=${record.orderHdId}&flag=d`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`${record.investigationName} - ${record.orderDate}`);
+    } catch (error) {
+      console.error("Failed to fetch Lab Report PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // 3. Radiology Reports Mock Data
   const radiologyData = [
@@ -235,78 +280,7 @@ export default function HealthRecords() {
     },
   ];
 
-  // 4. IPD Lab Reports Mock Data
-  const ipdLabData = [
-    {
-      id: 'ipd-lab-1',
-      date: '14 Aug 2026',
-      investigation: 'Complete Blood Count (CBC)',
-      result: '11.8',
-      unit: 'g/dL',
-      range: '12.0 - 16.0',
-      reportDate: '14 Aug 2026',
-      status: 'Borderline Low',
-      subTests: [
-        { name: 'Hemoglobin', value: '11.8', unit: 'g/dL', range: '12.0 - 16.0', status: 'Borderline Low' },
-        { name: 'Total Leucocyte Count (TLC)', value: '7,400', unit: '/cu mm', range: '4,000 - 11,000', status: 'Normal' },
-        { name: 'Platelet Count', value: '2.1', unit: 'Lakh/cu mm', range: '1.5 - 4.5', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'ipd-lab-2',
-      date: '14 Aug 2026',
-      investigation: 'Serum Creatinine',
-      result: '1.5',
-      unit: 'mg/dL',
-      range: '0.6 - 1.2',
-      reportDate: '14 Aug 2026',
-      status: 'Elevated',
-      subTests: [
-        { name: 'Serum Creatinine', value: '1.5', unit: 'mg/dL', range: '0.6 - 1.2', status: 'Elevated' }
-      ]
-    },
-    {
-      id: 'ipd-lab-3',
-      date: '15 Aug 2026',
-      investigation: 'Serum Sodium',
-      result: '138',
-      unit: 'mEq/L',
-      range: '135 - 145',
-      reportDate: '15 Aug 2026',
-      status: 'Normal',
-      subTests: [
-        { name: 'Serum Sodium (Na+)', value: '138', unit: 'mEq/L', range: '135 - 145', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'ipd-lab-4',
-      date: '15 Aug 2026',
-      investigation: 'Serum Potassium',
-      result: '4.2',
-      unit: 'mEq/L',
-      range: '3.5 - 5.0',
-      reportDate: '15 Aug 2026',
-      status: 'Normal',
-      subTests: [
-        { name: 'Serum Potassium (K+)', value: '4.2', unit: 'mEq/L', range: '3.5 - 5.0', status: 'Normal' }
-      ]
-    },
-    {
-      id: 'ipd-lab-5',
-      date: '16 Aug 2026',
-      investigation: 'C-Reactive Protein (CRP)',
-      result: '8.2',
-      unit: 'mg/L',
-      range: '< 5.0',
-      reportDate: '16 Aug 2026',
-      status: 'Elevated',
-      subTests: [
-        { name: 'Quantitative CRP', value: '8.2', unit: 'mg/L', range: '< 5.0', status: 'Elevated' }
-      ]
-    },
-  ];
-
-  // 5. Discharge Summaries Mock Data
+  // 4. IPD Lab Reports is now handled via API state  // 5. Discharge Summaries Mock Data
   const dischargeData = [
     {
       id: 'ds-1',
@@ -374,8 +348,10 @@ export default function HealthRecords() {
 
   const filteredLab = labData.filter(item => {
     if (!labSearchQuery.trim()) return true;
-    return item.investigation.toLowerCase().includes(labSearchQuery.toLowerCase());
+    return item.investigationName && item.investigationName.toLowerCase().includes(labSearchQuery.toLowerCase());
   });
+
+  const displayedLab = filteredLab;
 
   const filteredRadiology = radiologyData.filter(item => {
     const matchModality = radModalityFilter === 'All Modalities' || item.modality.toLowerCase() === radModalityFilter.toLowerCase();
@@ -385,7 +361,7 @@ export default function HealthRecords() {
 
   const filteredIpdLab = ipdLabData.filter(item => {
     if (!ipdLabSearchQuery.trim()) return true;
-    return item.investigation.toLowerCase().includes(ipdLabSearchQuery.toLowerCase());
+    return item.investigationName && item.investigationName.toLowerCase().includes(ipdLabSearchQuery.toLowerCase());
   });
 
   // Modal open trigger
@@ -559,64 +535,80 @@ export default function HealthRecords() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredOpd.map((item) => (
-                        <tr key={item.id}>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.specialty}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reason}</td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            <div className="d-flex gap-2">
-                              {item.nisNo && (
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-info btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                  style={{ fontSize: '0.8rem' }}
-                                  onClick={() => handleDownloadNisSlip(item)}
-                                  disabled={downloadingId === `${item.id}-nis`}
-                                >
-                                  {downloadingId === `${item.id}-nis` ? (
-                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                  ) : (
-                                    <i className="fa-solid fa-file-invoice"></i>
-                                  )}
-                                  <span>NIS Slip</span>
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="btn btn-outline-secondary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleDownloadOpdSlip(item)}
-                                disabled={downloadingId === `${item.id}-opd`}
-                              >
-                                {downloadingId === `${item.id}-opd` ? (
-                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                ) : (
-                                  <i className="fa-regular fa-file-lines"></i>
-                                )}
-                                <span>OPD Slip</span>
-                              </button>
-                              {(item.prescriptionStatus === 'y' || item.prescriptionHdId) && (
-                                <button
-                                  type="button"
-                                  className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                  style={{ fontSize: '0.8rem' }}
-                                  onClick={() => handleDownloadPrescriptionSlip(item)}
-                                  disabled={downloadingId === `${item.id}-rx`}
-                                >
-                                  {downloadingId === `${item.id}-rx` ? (
-                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                  ) : (
-                                    <i className="fa-solid fa-file-prescription"></i>
-                                  )}
-                                  <span>Prescription</span>
-                                </button>
-                              )}
+                      {opdLoading ? (
+                        <tr>
+                          <td colSpan="5" className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Loading...</span>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : filteredOpd.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="text-center py-4 text-muted">
+                            No OPD prescriptions found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredOpd.map((item) => (
+                          <tr key={item.id}>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.specialty}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reason}</td>
+                            <td className="py-2.5 px-3 text-nowrap">
+                              <div className="d-flex gap-2">
+                                {item.nisNo && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-info btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadNisSlip(item)}
+                                    disabled={downloadingId === `${item.id}-nis`}
+                                  >
+                                    {downloadingId === `${item.id}-nis` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-solid fa-file-invoice"></i>
+                                    )}
+                                    <span>NIS Slip</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-secondary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                  style={{ fontSize: '0.8rem' }}
+                                  onClick={() => handleDownloadOpdSlip(item)}
+                                  disabled={downloadingId === `${item.id}-opd`}
+                                >
+                                  {downloadingId === `${item.id}-opd` ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                  ) : (
+                                    <i className="fa-regular fa-file-lines"></i>
+                                  )}
+                                  <span>OPD Slip</span>
+                                </button>
+                                {(item.prescriptionStatus === 'y' || item.prescriptionHdId) && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadPrescriptionSlip(item)}
+                                    disabled={downloadingId === `${item.id}-rx`}
+                                  >
+                                    {downloadingId === `${item.id}-rx` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-solid fa-file-prescription"></i>
+                                    )}
+                                    <span>Prescription</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -694,32 +686,53 @@ export default function HealthRecords() {
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Result</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Unit</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Range</th>
-                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Report Date</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Result Date</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLab.map((item) => (
-                        <tr key={item.id}>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigation}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reportDate}</td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                              style={{ fontSize: '0.8rem' }}
-                              onClick={() => handleOpenDoc('Lab Report', item)}
-                            >
-                              <i className="fa-regular fa-file-lines"></i>
-                              <span>View Report</span>
-                            </button>
+                      {labLoading ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Loading...</span>
+                            </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : displayedLab.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4 text-muted">
+                            No lab reports found.
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedLab.map((item, index) => (
+                          <tr key={item.resultEntryDetailsId}>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
+                            <td className="py-2.5 px-3 text-nowrap">
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                style={{ fontSize: '0.8rem' }}
+                                onClick={() => handleDownloadLabReport(item)}
+                                disabled={downloadingId === `${item.resultEntryDetailsId}-lab`}
+                              >
+                                {downloadingId === `${item.resultEntryDetailsId}-lab` ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  <i className="fa-regular fa-file-lines"></i>
+                                )}
+                                <span>View Report</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -727,32 +740,32 @@ export default function HealthRecords() {
                 {/* Table Footer / Pagination */}
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
                   <div className="text-secondary small">
-                    Showing 1 to {filteredLab.length} of 18 reports
+                    Showing {Math.min(labPage * labPageSize + 1, labTotalElements)} to {Math.min((labPage + 1) * labPageSize, labTotalElements)} of {labTotalElements} reports
                   </div>
                   <nav aria-label="Lab table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Previous">
+                      <li className={`page-item ${labPage === 0 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Previous"
+                          onClick={() => setLabPage(Math.max(0, labPage - 1))}
+                          disabled={labPage === 0}
+                        >
                           &lt;
                         </button>
                       </li>
                       <li className="page-item active">
                         <button className="page-link border-0 rounded bg-primary text-white py-1 px-2">
-                          1
+                          {labPage + 1}
                         </button>
                       </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          2
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          3
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Next">
+                      <li className={`page-item ${(labPage + 1) * labPageSize >= labTotalElements ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Next"
+                          onClick={() => setLabPage(labPage + 1)}
+                          disabled={(labPage + 1) * labPageSize >= labTotalElements}
+                        >
                           &gt;
                         </button>
                       </li>
@@ -946,27 +959,48 @@ export default function HealthRecords() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredIpdLab.map((item) => (
-                        <tr key={item.id}>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigation}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reportDate}</td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                              style={{ fontSize: '0.8rem' }}
-                              onClick={() => handleOpenDoc('IPD Lab Report', item)}
-                            >
-                              <i className="fa-regular fa-file-lines"></i>
-                              <span>View Report</span>
-                            </button>
+                      {ipdLabLoading ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Loading...</span>
+                            </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : filteredIpdLab.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4 text-muted">
+                            No IPD lab reports found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredIpdLab.map((item) => (
+                          <tr key={item.resultEntryDetailsId}>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
+                            <td className="py-2.5 px-3 text-nowrap">
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                style={{ fontSize: '0.8rem' }}
+                                onClick={() => handleDownloadLabReport(item)}
+                                disabled={downloadingId === `${item.resultEntryDetailsId}-lab`}
+                              >
+                                {downloadingId === `${item.resultEntryDetailsId}-lab` ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  <i className="fa-regular fa-file-lines"></i>
+                                )}
+                                <span>View Report</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -974,32 +1008,32 @@ export default function HealthRecords() {
                 {/* Table Footer / Pagination */}
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
                   <div className="text-secondary small">
-                    Showing 1 to {filteredIpdLab.length} of 24 reports
+                    Showing {ipdLabTotalElements === 0 ? 0 : ipdLabPage * ipdLabPageSize + 1} to {Math.min((ipdLabPage + 1) * ipdLabPageSize, ipdLabTotalElements)} of {ipdLabTotalElements} reports
                   </div>
                   <nav aria-label="IPD Lab table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Previous">
+                      <li className={`page-item ${ipdLabPage === 0 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Previous"
+                          onClick={() => setIpdLabPage(Math.max(0, ipdLabPage - 1))}
+                          disabled={ipdLabPage === 0}
+                        >
                           &lt;
                         </button>
                       </li>
                       <li className="page-item active">
                         <button className="page-link border-0 rounded bg-primary text-white py-1 px-2">
-                          1
+                          {ipdLabPage + 1}
                         </button>
                       </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          2
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          3
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Next">
+                      <li className={`page-item ${(ipdLabPage + 1) * ipdLabPageSize >= ipdLabTotalElements ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Next"
+                          onClick={() => setIpdLabPage(ipdLabPage + 1)}
+                          disabled={(ipdLabPage + 1) * ipdLabPageSize >= ipdLabTotalElements}
+                        >
                           &gt;
                         </button>
                       </li>
