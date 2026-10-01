@@ -51,6 +51,13 @@ export default function HealthRecords() {
   const [ipdLabLoading, setIpdLabLoading] = useState(false);
   const ipdLabPageSize = 5;
 
+  const [radData, setRadData] = useState([]);
+  const [radPage, setRadPage] = useState(0);
+  const [radTotalElements, setRadTotalElements] = useState(0);
+  const [radTotalPages, setRadTotalPages] = useState(0);
+  const [radLoading, setRadLoading] = useState(false);
+  const radPageSize = 5;
+
   useEffect(() => {
     if (activeTab === 'opd-prescriptions') {
       const fetchOpdReports = async () => {
@@ -226,59 +233,65 @@ export default function HealthRecords() {
     }
   };
 
-  // 3. Radiology Reports Mock Data
-  const radiologyData = [
-    {
-      id: 'rad-1',
-      studyDate: '22 Sep 2026',
-      investigation: 'X-Ray Chest (PA View)',
-      modality: 'X-Ray',
-      reportDate: '22 Sep 2026',
-      status: 'Completed',
-      findings: 'Both lung fields are clear. No focal consolidation, pneumothorax, or pleural effusion. Cardiac silhouette is within normal limits. Both costophrenic angles are sharp.',
-      impression: 'Normal study of chest (PA View).'
-    },
-    {
-      id: 'rad-2',
-      studyDate: '30 Jul 2026',
-      investigation: 'Ultrasound Abdomen',
-      modality: 'Ultrasound',
-      reportDate: '31 Jul 2026',
-      status: 'Completed',
-      findings: 'Liver is normal in size and echotexture. Gall bladder is normal without calculi. Spleen, pancreas, and both kidneys appear normal in size, shape, and parenchymal echogenicity.',
-      impression: 'No significant intra-abdominal pathology detected.'
-    },
-    {
-      id: 'rad-3',
-      studyDate: '15 May 2026',
-      investigation: 'MRI Brain',
-      modality: 'MRI',
-      reportDate: '16 May 2026',
-      status: 'Pending',
-      findings: 'Scans acquired under protocol T1, T2, FLAIR, and DWI sequences. Awaiting final senior consultant radiologist sign-off.',
-      impression: 'Report under review and validation.'
-    },
-    {
-      id: 'rad-4',
-      studyDate: '02 Mar 2026',
-      investigation: 'CT Scan - Chest',
-      modality: 'CT',
-      reportDate: '03 Mar 2026',
-      status: 'Completed',
-      findings: 'HRCT chest sections show normal bronchovascular markings. No ground-glass opacities, cavitation, or mediastinal lymphadenopathy noted.',
-      impression: 'Unremarkable HRCT chest examination.'
-    },
-    {
-      id: 'rad-5',
-      studyDate: '10 Jan 2026',
-      investigation: 'Mammography',
-      modality: 'Mammography',
-      reportDate: '11 Jan 2026',
-      status: 'Drafted',
-      findings: 'Bilateral digital mammography views obtained. Preliminary observations drafted.',
-      impression: 'BI-RADS Category 1 - Negative.'
-    },
-  ];
+  const handleDownloadRadReport = async (record) => {
+    if (!record.radOrderDtId) {
+      alert("Order ID not found for this report.");
+      return;
+    }
+    setDownloadingId(`${record.radOrderDtId}-rad`);
+    try {
+      const endpoint = `${ENDPOINTS.RADIOLOGY.PDF_REPORT}?radOrderDtId=${record.radOrderDtId}&flag=d`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`${record.investigationName} - ${record.orderDate || record.studyDate}`);
+    } catch (error) {
+      console.error("Failed to fetch Radiology Report PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // 3. Radiology Reports Logic
+  useEffect(() => {
+    if (activeTab === 'radiology-reports') {
+      const fetchRadReports = async () => {
+        setRadLoading(true);
+        try {
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+             const parsedActive = JSON.parse(activeData);
+             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          
+          if (!patientId) {
+             setRadLoading(false);
+             return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.RADIOLOGY.PACS_STUDY_LIST}?patientId=${patientId}&page=${radPage}&size=${radPageSize}`);
+          
+          if (res && res.response && res.response.content) {
+            setRadData(res.response.content);
+            setRadTotalElements(res.response.totalElements || res.response.content.length);
+            setRadTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
+          } else {
+             setRadData([]);
+             setRadTotalElements(0);
+             setRadTotalPages(0);
+          }
+        } catch (error) {
+          console.error("Failed to fetch Radiology reports:", error);
+        } finally {
+          setRadLoading(false);
+        }
+      };
+      fetchRadReports();
+    }
+  }, [activeTab, radPage]);
 
   // 4. IPD Lab Reports is now handled via API state  // 5. Discharge Summaries Mock Data
   const dischargeData = [
@@ -353,9 +366,14 @@ export default function HealthRecords() {
 
   const displayedLab = filteredLab;
 
-  const filteredRadiology = radiologyData.filter(item => {
-    const matchModality = radModalityFilter === 'All Modalities' || item.modality.toLowerCase() === radModalityFilter.toLowerCase();
-    const matchStatus = radStatusFilter === 'All' || item.status.toLowerCase() === radStatusFilter.toLowerCase();
+  const filteredRadiology = radData.filter(item => {
+    const matchModality = radModalityFilter === 'All Modalities' || (item.modality && item.modality.toLowerCase().includes(radModalityFilter.toLowerCase()));
+    
+    let reportStatusStr = 'Drafted';
+    if (item.reportStatus === 'y') reportStatusStr = 'Completed';
+    else if (item.reportStatus === 'n') reportStatusStr = 'Pending';
+
+    const matchStatus = radStatusFilter === 'All' || reportStatusStr.toLowerCase() === radStatusFilter.toLowerCase();
     return matchModality && matchStatus;
   });
 
@@ -821,62 +839,95 @@ export default function HealthRecords() {
                   <table className="table table-bordered table-hover align-middle mb-0 bg-white">
                     <thead className="table-light">
                       <tr>
-                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Study Date</th>
-                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Investigation Name</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Accession No.</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Modality</th>
-                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Report Date</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Investigation Name</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Order Date/Time</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Study Date/Time</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Report Status</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRadiology.map((item) => (
-                        <tr key={item.id}>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.studyDate}</td>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigation}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.modality}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reportDate}</td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            {item.status === 'Completed' && (
-                              <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
-                                Completed
-                              </span>
-                            )}
-                            {item.status === 'Pending' && (
-                              <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
-                                Pending
-                              </span>
-                            )}
-                            {item.status === 'Drafted' && (
-                              <span className="badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
-                                Drafted
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            <div className="d-flex gap-2">
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Radiology Report', item)}
-                              >
-                                <i className="fa-regular fa-file-lines"></i>
-                                <span>View Report</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Radiology Study', item)}
-                              >
-                                <i className="fa-regular fa-image"></i>
-                                <span>View Study</span>
-                              </button>
+                      {radLoading ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Loading...</span>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : filteredRadiology.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="text-center py-4 text-muted">
+                            No radiology reports found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredRadiology.map((item) => (
+                          <tr key={item.radOrderDtId || item.accessionNo || Math.random()}>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.accessionNo || '-'}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.modality}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
+                              {item.orderDate || '-'} <br/>
+                              <small className="text-muted">{item.orderTime && item.orderTime.includes('T') ? item.orderTime.split('T')[1].substring(0, 5) : item.orderTime}</small>
+                            </td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
+                              {item.studyDate || '-'} <br/>
+                              <small className="text-muted">{item.studyTime && item.studyTime.includes('T') ? item.studyTime.split('T')[1].substring(0, 5) : item.studyTime}</small>
+                            </td>
+                            <td className="py-2.5 px-3 text-nowrap">
+                              {item.reportStatus === 'y' && (
+                                <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
+                                  Completed
+                                </span>
+                              )}
+                              {item.reportStatus === 'n' && (
+                                <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
+                                  Pending
+                                </span>
+                              )}
+                              {(!item.reportStatus || (item.reportStatus !== 'y' && item.reportStatus !== 'n')) && (
+                                <span className="badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1 fw-medium" style={{ fontSize: '0.78rem' }}>
+                                  Drafted
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-nowrap">
+                              <div className="d-flex gap-2">
+                                {item.reportStatus === 'y' && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadRadReport(item)}
+                                    disabled={downloadingId === `${item.radOrderDtId}-rad`}
+                                  >
+                                    {downloadingId === `${item.radOrderDtId}-rad` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-file-lines"></i>
+                                    )}
+                                    <span>View Report</span>
+                                  </button>
+                                )}
+                                {item.studyStatus === 'y' && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleOpenDoc('Radiology Study', item)}
+                                  >
+                                    <i className="fa-regular fa-image"></i>
+                                    <span>View Study</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -884,32 +935,32 @@ export default function HealthRecords() {
                 {/* Table Footer / Pagination */}
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
                   <div className="text-secondary small">
-                    Showing 1 to {filteredRadiology.length} of 10 reports
+                    Showing {Math.min(radPage * radPageSize + 1, radTotalElements)} to {Math.min((radPage + 1) * radPageSize, radTotalElements)} of {radTotalElements} reports
                   </div>
                   <nav aria-label="Radiology table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Previous">
+                      <li className={`page-item ${radPage === 0 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Previous"
+                          onClick={() => setRadPage(Math.max(0, radPage - 1))}
+                          disabled={radPage === 0}
+                        >
                           &lt;
                         </button>
                       </li>
                       <li className="page-item active">
                         <button className="page-link border-0 rounded bg-primary text-white py-1 px-2">
-                          1
+                          {radPage + 1}
                         </button>
                       </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          2
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2">
-                          3
-                        </button>
-                      </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Next">
+                      <li className={`page-item ${(radPage + 1) * radPageSize >= radTotalElements ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Next"
+                          onClick={() => setRadPage(radPage + 1)}
+                          disabled={(radPage + 1) * radPageSize >= radTotalElements}
+                        >
                           &gt;
                         </button>
                       </li>
@@ -1358,7 +1409,7 @@ export default function HealthRecords() {
                     <div className="row g-2 mb-3">
                       <div className="col-md-6">
                         <span className="small text-muted d-block">Investigation</span>
-                        <strong className="text-dark">{selectedDoc.record.investigation}</strong>
+                        <strong className="text-dark">{selectedDoc.record.investigationName || selectedDoc.record.investigation}</strong>
                       </div>
                       <div className="col-md-3">
                         <span className="small text-muted d-block">Modality</span>
@@ -1366,26 +1417,28 @@ export default function HealthRecords() {
                       </div>
                       <div className="col-md-3">
                         <span className="small text-muted d-block">Status</span>
-                        <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle">{selectedDoc.record.status}</span>
+                        <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle">
+                          {selectedDoc.record.reportStatus === 'y' ? 'Completed' : selectedDoc.record.reportStatus === 'n' ? 'Pending' : 'Drafted'}
+                        </span>
                       </div>
                     </div>
 
                     <div className="mb-3">
                       <h6 className="fw-bold text-dark mb-1">Clinical Findings</h6>
                       <p className="text-secondary small bg-light p-3 rounded-3 mb-0 border border-light-subtle">
-                        {selectedDoc.record.findings}
+                        {selectedDoc.record.findings || 'Report findings are available in the attached file.'}
                       </p>
                     </div>
 
                     <div className="mb-3">
                       <h6 className="fw-bold text-dark mb-1">Impression</h6>
                       <div className="alert alert-primary bg-white bg-opacity-10 border-0 text-primary small py-2 px-3 mb-0">
-                        {selectedDoc.record.impression}
+                        {selectedDoc.record.impression || 'Final report under review.'}
                       </div>
                     </div>
 
                     <div className="p-2 bg-light rounded text-center small text-muted">
-                      <i className="fa-solid fa-circle-check text-success me-1"></i> Digitally Signed by Dr. K. Raman, MD (Radiodiagnosis)
+                      <i className="fa-solid fa-circle-check text-success me-1"></i> Digitally Signed by Authorized Radiologist
                     </div>
                   </div>
                 )}
@@ -1394,7 +1447,7 @@ export default function HealthRecords() {
                   <div className="text-center py-4 bg-dark rounded-3 text-white">
                     <i className="fa-solid fa-x-ray fs-1 text-info mb-3"></i>
                     <h5 className="fw-bold mb-1">DICOM Study Viewer</h5>
-                    <p className="small text-secondary mb-3">{selectedDoc.record.investigation} • Study ID: #RAD-STUDY-{selectedDoc.record.id}</p>
+                    <p className="small text-secondary mb-3">{selectedDoc.record.investigationName || selectedDoc.record.investigation} • Study ID: #{selectedDoc.record.accessionNo || selectedDoc.record.id}</p>
                     <div className="d-inline-flex gap-2">
                       <button type="button" className="btn btn-outline-light btn-sm px-3">
                         <i className="fa-solid fa-magnifying-glass-plus me-1"></i> Zoom
