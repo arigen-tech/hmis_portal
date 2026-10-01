@@ -67,5 +67,9 @@ export const ENDPOINTS = {
     INVESTIGATIONS_REPORT: '/lab/investigationsReport/all',
     PDF_REPORT: '/report/labInvestigationReport',
   },
+  RADIOLOGY: {
+    PACS_STUDY_LIST: '/radiology/getPACSStudyList',
+    PDF_REPORT: '/report/radiologyReport',
+  },
   // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
 };
