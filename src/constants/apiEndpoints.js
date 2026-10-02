@@ -71,5 +71,11 @@ export const ENDPOINTS = {
     PACS_STUDY_LIST: '/radiology/getPACSStudyList',
     PDF_REPORT: '/report/radiologyReport',
   },
+  IPD: {
+    ADMISSION_DISCHARGE_LIST: '/ipd/activeAdmissionAndDischargeAdmissionList',
+    DISCHARGE_SUMMARY_REPORT: '/report/dischageSummary',
+    BILL_SUMMARY_REPORT: '/report/ipSummaryBill',
+    DETAILED_BILL_REPORT: '/report/ipDetailedBill',
+  },
   // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
-};
+  };
