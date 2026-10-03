@@ -77,32 +77,15 @@ export const apiService = {
    * @param {string} endpoint - The endpoint URL
    * @param {object} options - Optional configuration
    */
-  getPdf: async (endpoint, options = {}) => {
-    const { requireAuth = true, ...restOptions } = options;
-    const { API_BASE_URL } = await import('../constants/apiEndpoints');
-    
-    const headers = {
-      'Accept': 'application/pdf',
-      ...restOptions.headers,
-    };
-
-    if (requireAuth) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  getPdf: (endpoint, options = {}) => {
+    return fetchApi(endpoint, {
       method: 'GET',
-      ...restOptions,
-      headers,
+      responseType: 'blob',
+      headers: {
+        'Accept': 'application/pdf',
+        ...options.headers,
+      },
+      ...options,
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-    }
-
-    return await response.blob();
   }
 };
