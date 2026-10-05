@@ -25,6 +25,13 @@ export const ENDPOINTS = {
     GET_OPD_SESSIONS: '/master/opd-session/getAll/1',
     GET_INVESTIGATIONS_PRICE: '/DgMasInvestigation/price-details',
     GET_PACKAGES: '/package-investigation-mapping/getAllPackageMap/1',
+    GET_ALL_GENDER: '/master/gender/getAll/1',
+    GET_ALL_RELATION: '/master/relation/getAll/1',
+    GET_ALL_COUNTRY: '/master/country/getAll/1',
+    GET_STATE_BY_COUNTRY_ID: '/master/state/getByCountryId',
+    GET_DISTRICT_BY_STATE_ID: '/master/district/getByState',
+    GET_ALL_BLOOD_GROUP: '/master/blood-group/getAll/1',
+    GET_ALL_MARITAL_STATUS: '/master/marital-status/getAll/1',
   },
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
@@ -78,5 +85,7 @@ export const ENDPOINTS = {
     BILL_SUMMARY_REPORT: '/report/ipSummaryBill',
     DETAILED_BILL_REPORT: '/report/ipDetailedBill',
   },
-  // Add other modules here like PATIENTS, DOCTORS, APPOINTMENTS etc.
-  };
+  PATIENTS: {
+    ADD_FAMILY_MEMBER: '/patient/register/family-member',
+  }
+};
