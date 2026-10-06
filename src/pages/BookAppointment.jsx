@@ -1122,7 +1122,6 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                           }}
                           style={{ fontSize: '0.88rem' }}
                         >
-                          <option value="">All Sessions</option>
                           {opdSessionsList.map(session => (
                             <option key={session.id} value={session.id}>
                               {session.sessionName} ({session.fromTime ? session.fromTime.substring(0, 5) : ''} - {session.endTime ? session.endTime.substring(0, 5) : ''})

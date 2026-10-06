@@ -58,6 +58,12 @@ export default function HealthRecords() {
   const [radLoading, setRadLoading] = useState(false);
   const radPageSize = 5;
 
+  const [dischargeData, setDischargeData] = useState([]);
+  const [dischargePage, setDischargePage] = useState(0);
+  const [dischargeTotalElements, setDischargeTotalElements] = useState(0);
+  const [dischargeLoading, setDischargeLoading] = useState(false);
+  const dischargePageSize = 5;
+
   useEffect(() => {
     if (activeTab === 'opd-prescriptions') {
       const fetchOpdReports = async () => {
@@ -254,6 +260,35 @@ export default function HealthRecords() {
     }
   };
 
+  const handleViewStudy = async (record) => {
+    if (!record.uhidNo || !record.accessionNo) {
+      alert("Missing patient or order details to view study.");
+      return;
+    }
+    
+    setDownloadingId(`${record.radOrderDtId}-study`);
+    try {
+      const orderNoEncoded = encodeURIComponent(record.accessionNo);
+      const endpoint = `${ENDPOINTS.RADIOLOGY.PACS_LAUNCH_URL}?uhid=${record.uhidNo}&orderNo=${orderNoEncoded}`;
+      
+      const res = await apiService.get(endpoint);
+      if (res && res.response && res.response.weasisUrl) {
+        window.open(res.response.weasisUrl, '_blank');
+      } else {
+        alert("Study details not available yet.");
+      }
+    } catch (error) {
+      console.error("Failed to launch study", error);
+      if (error.data && error.data.detail) {
+        alert(error.data.detail);
+      } else {
+        alert("Failed to open study. Please try again.");
+      }
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   // 3. Radiology Reports Logic
   useEffect(() => {
     if (activeTab === 'radiology-reports') {
@@ -293,65 +328,42 @@ export default function HealthRecords() {
     }
   }, [activeTab, radPage]);
 
-  // 4. IPD Lab Reports is now handled via API state  // 5. Discharge Summaries Mock Data
-  const dischargeData = [
-    {
-      id: 'ds-1',
-      admissionNo: 'IPD20260078',
-      admissionDate: '10 Aug 2026',
-      dischargeDate: '16 Aug 2026',
-      department: 'General Medicine',
-      doctor: 'Dr. Priya Sharma',
-      diagnosis: 'Acute Enteric Infection with Moderate Dehydration',
-      totalBill: '₹ 48,250',
-      insurancePaid: '₹ 42,000',
-      patientPaid: '₹ 6,250',
-      roomType: 'Semi-Private Deluxe (Room 304)',
-      procedure: 'IV fluid hydration, broad-spectrum antibiotic coverage, electrolyte correction'
-    },
-    {
-      id: 'ds-2',
-      admissionNo: 'IPD20260056',
-      admissionDate: '12 Mar 2026',
-      dischargeDate: '18 Mar 2026',
-      department: 'Orthopedics',
-      doctor: 'Dr. Rajesh Kumar',
-      diagnosis: 'Right Knee Arthroscopic Meniscal Repair',
-      totalBill: '₹ 86,400',
-      insurancePaid: '₹ 75,000',
-      patientPaid: '₹ 11,400',
-      roomType: 'Private Room (Room 212)',
-      procedure: 'Diagnostic and operative knee arthroscopy, partial meniscectomy'
-    },
-    {
-      id: 'ds-3',
-      admissionNo: 'IPD20260021',
-      admissionDate: '05 Jan 2026',
-      dischargeDate: '12 Jan 2026',
-      department: 'Urology',
-      doctor: 'Dr. Amit Kumar',
-      diagnosis: 'Left Ureteric Calculus (8mm) - Hydronephrosis',
-      totalBill: '₹ 72,100',
-      insurancePaid: '₹ 65,000',
-      patientPaid: '₹ 7,100',
-      roomType: 'Private Room (Room 118)',
-      procedure: 'Left Ureterorenoscopy (URS) with Laser Lithotripsy & DJ Stenting'
-    },
-    {
-      id: 'ds-4',
-      admissionNo: 'IPD20250098',
-      admissionDate: '20 Nov 2025',
-      dischargeDate: '28 Nov 2025',
-      department: 'Cardiology',
-      doctor: 'Dr. Sarah Johnson',
-      diagnosis: 'Unstable Angina - Coronary Artery Disease',
-      totalBill: '₹ 1,35,000',
-      insurancePaid: '₹ 1,20,000',
-      patientPaid: '₹ 15,000',
-      roomType: 'ICU (3 Days) + Deluxe Room (5 Days)',
-      procedure: 'Coronary Angiography followed by PTCA with DES to LAD'
-    },
-  ];
+  // 4. IPD Lab Reports is now handled via API state  // 5. Discharge Summaries API Data
+  useEffect(() => {
+    if (activeTab === 'discharge-summaries') {
+      const fetchDischargeSummaries = async () => {
+        setDischargeLoading(true);
+        try {
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+             const parsedActive = JSON.parse(activeData);
+             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          
+          if (!patientId) {
+             setDischargeLoading(false);
+             return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.IPD.ADMISSION_DISCHARGE_LIST}?page=${dischargePage}&size=${dischargePageSize}&patientId=${patientId}&admissionStatus=2`);
+          
+          if (res && res.response && res.response.content) {
+            setDischargeData(res.response.content);
+            setDischargeTotalElements(res.response.totalElements || res.response.content.length);
+          } else {
+             setDischargeData([]);
+             setDischargeTotalElements(0);
+          }
+        } catch (error) {
+          console.error("Failed to fetch Discharge summaries:", error);
+        } finally {
+          setDischargeLoading(false);
+        }
+      };
+      fetchDischargeSummaries();
+    }
+  }, [activeTab, dischargePage]);
 
   // Filtering helpers
   const filteredOpd = opdData.filter(item => {
@@ -449,6 +461,69 @@ export default function HealthRecords() {
       setPdfName(`NIS Slip - ${record.date}`);
     } catch (error) {
       console.error("Failed to fetch NIS Slip PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadDischargeSummary = async (record) => {
+    if (!record.inpatientId) {
+      alert("Inpatient ID not found for this admission.");
+      return;
+    }
+    setDownloadingId(`${record.inpatientId}-discharge`);
+    try {
+      const endpoint = `${ENDPOINTS.IPD.DISCHARGE_SUMMARY_REPORT}?inPatientId=${record.inpatientId}&flag=d`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`Discharge Summary - ${record.admissionNo}`);
+    } catch (error) {
+      console.error("Failed to fetch Discharge Summary PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadBillSummary = async (record) => {
+    if (!record.inpatientId) {
+      alert("Inpatient ID not found for this admission.");
+      return;
+    }
+    setDownloadingId(`${record.inpatientId}-bill`);
+    try {
+      const endpoint = `${ENDPOINTS.IPD.BILL_SUMMARY_REPORT}?inpatientId=${record.inpatientId}&flag=d`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`Bill Summary - ${record.admissionNo}`);
+    } catch (error) {
+      console.error("Failed to fetch Bill Summary PDF", error);
+      alert("Failed to load PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadDetailedBill = async (record) => {
+    if (!record.inpatientId) {
+      alert("Inpatient ID not found for this admission.");
+      return;
+    }
+    setDownloadingId(`${record.inpatientId}-detailed-bill`);
+    try {
+      const endpoint = `${ENDPOINTS.IPD.DETAILED_BILL_REPORT}?inpatientId=${record.inpatientId}&flag=d`;
+      const blob = await apiService.getPdf(endpoint);
+      
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setPdfName(`Detailed Bill - ${record.admissionNo}`);
+    } catch (error) {
+      console.error("Failed to fetch Detailed Bill PDF", error);
       alert("Failed to load PDF. Please try again.");
     } finally {
       setDownloadingId(null);
@@ -917,9 +992,14 @@ export default function HealthRecords() {
                                     type="button"
                                     className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
                                     style={{ fontSize: '0.8rem' }}
-                                    onClick={() => handleOpenDoc('Radiology Study', item)}
+                                    onClick={() => handleViewStudy(item)}
+                                    disabled={downloadingId === `${item.radOrderDtId}-study`}
                                   >
-                                    <i className="fa-regular fa-image"></i>
+                                    {downloadingId === `${item.radOrderDtId}-study` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-image"></i>
+                                    )}
                                     <span>View Study</span>
                                   </button>
                                 )}
@@ -1109,52 +1189,91 @@ export default function HealthRecords() {
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Admission No.</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Admission Date</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Discharge Date</th>
-                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Department</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Category Name</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Treating Doctor</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {dischargeData.map((item) => (
-                        <tr key={item.id}>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.admissionNo}</td>
-                          <td className="  " style={{ fontSize: '0.88rem' }}>{item.admissionDate}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.dischargeDate}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.department}</td>
-                          <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
-                          <td className="py-2.5 px-3 text-nowrap">
-                            <div className="d-flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Discharge Summary', item)}
-                              >
-                                <i className="fa-regular fa-file-lines"></i>
-                                <span>Discharge Summary</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Bill Summary', item)}
-                              >
-                                <i className="fa-regular fa-file-lines"></i>
-                                <span>Bill Summary</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                style={{ fontSize: '0.8rem' }}
-                                onClick={() => handleOpenDoc('Detailed Bill', item)}
-                              >
-                                <i className="fa-regular fa-file-lines"></i>
-                                <span>Detailed Bill</span>
-                              </button>
+                      {dischargeLoading ? (
+                        <tr>
+                          <td colSpan="6" className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Loading...</span>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ) : dischargeData.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center py-4 text-muted">
+                            No discharge summaries found.
+                          </td>
+                        </tr>
+                      ) : (
+                        dischargeData.map((item) => {
+                          let admDate = item.admissionDateTime || '-';
+                          if (admDate.includes('T')) admDate = admDate.replace('T', ' ').substring(0, 16);
+                          
+                          let disDate = item.dischargeDate || '-';
+                          if (disDate.includes('T')) disDate = disDate.replace('T', ' ').substring(0, 16);
+                          
+                          return (
+                            <tr key={item.inpatientId || Math.random()}>
+                              <td className="  " style={{ fontSize: '0.88rem' }}>{item.admissionNo}</td>
+                              <td className="  " style={{ fontSize: '0.88rem' }}>{admDate}</td>
+                              <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{disDate}</td>
+                              <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.categoryName}</td>
+                              <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.doctorName}</td>
+                              <td className="py-2.5 px-3 text-nowrap">
+                                <div className="d-flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadDischargeSummary(item)}
+                                    disabled={downloadingId === `${item.inpatientId}-discharge`}
+                                  >
+                                    {downloadingId === `${item.inpatientId}-discharge` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-file-lines"></i>
+                                    )}
+                                    <span>Discharge Summary</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadBillSummary(item)}
+                                    disabled={downloadingId === `${item.inpatientId}-bill`}
+                                  >
+                                    {downloadingId === `${item.inpatientId}-bill` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-file-lines"></i>
+                                    )}
+                                    <span>Bill Summary</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
+                                    style={{ fontSize: '0.8rem' }}
+                                    onClick={() => handleDownloadDetailedBill(item)}
+                                    disabled={downloadingId === `${item.inpatientId}-detailed-bill`}
+                                  >
+                                    {downloadingId === `${item.inpatientId}-detailed-bill` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-file-lines"></i>
+                                    )}
+                                    <span>Detailed Bill</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1162,22 +1281,32 @@ export default function HealthRecords() {
                 {/* Table Footer / Pagination */}
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
                   <div className="text-secondary small">
-                    Showing 1 to {dischargeData.length} of 4 admissions
+                    Showing {dischargeTotalElements === 0 ? 0 : dischargePage * dischargePageSize + 1} to {Math.min((dischargePage + 1) * dischargePageSize, dischargeTotalElements)} of {dischargeTotalElements} admissions
                   </div>
                   <nav aria-label="Discharge summary table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Previous">
+                      <li className={`page-item ${dischargePage === 0 ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Previous"
+                          onClick={() => setDischargePage(Math.max(0, dischargePage - 1))}
+                          disabled={dischargePage === 0}
+                        >
                           &lt;
                         </button>
                       </li>
                       <li className="page-item active">
                         <button className="page-link border-0 rounded bg-primary text-white py-1 px-2">
-                          1
+                          {dischargePage + 1}
                         </button>
                       </li>
-                      <li className="page-item">
-                        <button className="page-link border rounded text-secondary py-1 px-2" aria-label="Next">
+                      <li className={`page-item ${(dischargePage + 1) * dischargePageSize >= dischargeTotalElements ? 'disabled' : ''}`}>
+                        <button 
+                          className="page-link border rounded text-secondary py-1 px-2" 
+                          aria-label="Next"
+                          onClick={() => setDischargePage(dischargePage + 1)}
+                          disabled={(dischargePage + 1) * dischargePageSize >= dischargeTotalElements}
+                        >
                           &gt;
                         </button>
                       </li>
@@ -1471,15 +1600,17 @@ export default function HealthRecords() {
                       </div>
                       <div className="col-md-6">
                         <span className="small text-muted d-block">Duration</span>
-                        <strong className="text-dark">{selectedDoc.record.admissionDate} to {selectedDoc.record.dischargeDate}</strong>
+                        <strong className="text-dark">
+                          {selectedDoc.record.admissionDateTime ? selectedDoc.record.admissionDateTime.replace('T', ' ').substring(0, 16) : selectedDoc.record.admissionDate} to {selectedDoc.record.dischargeDate ? selectedDoc.record.dischargeDate.replace('T', ' ').substring(0, 16) : ''}
+                        </strong>
                       </div>
                       <div className="col-md-6">
-                        <span className="small text-muted d-block">Department & Room</span>
-                        <strong className="text-dark">{selectedDoc.record.department}</strong> ({selectedDoc.record.roomType})
+                        <span className="small text-muted d-block">Category & Room</span>
+                        <strong className="text-dark">{selectedDoc.record.categoryName || selectedDoc.record.department}</strong> ({selectedDoc.record.room || selectedDoc.record.roomType})
                       </div>
                       <div className="col-md-6">
                         <span className="small text-muted d-block">Treating Consultant</span>
-                        <strong className="text-dark">{selectedDoc.record.doctor}</strong>
+                        <strong className="text-dark">{selectedDoc.record.doctorName || selectedDoc.record.doctor}</strong>
                       </div>
                     </div>
 

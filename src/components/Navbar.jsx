@@ -16,10 +16,74 @@ export default function Navbar() {
   const [activePatientId, setActivePatientId] = useState(null);
   const [hospitals, setHospitals] = useState([]);
   const [activeHospital, setActiveHospital] = useState(null);
-  const [newMemberName, setNewMemberName] = useState('');
-  const [newMemberRelation, setNewMemberRelation] = useState('Spouse');
-  const [newMemberDob, setNewMemberDob] = useState('');
-  const [newMemberGender, setNewMemberGender] = useState('Female');
+  const [newMemberForm, setNewMemberForm] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    mobileNo: '',
+    altMobileNo: '',
+    relation: '',
+    email: '',
+    gender: '',
+    maritalStatus: '',
+    bloodGroup: '',
+    dob: '',
+    emergencyContactName: '',
+    emergencyContactNo: '',
+    address1: '',
+    address2: '',
+    country: '',
+    state: '',
+    city: '',
+    pincode: '',
+    patientAge: ''
+  });
+
+  const [masterGenders, setMasterGenders] = useState([]);
+  const [masterRelations, setMasterRelations] = useState([]);
+  const [masterCountries, setMasterCountries] = useState([]);
+  const [masterStates, setMasterStates] = useState([]);
+  const [masterDistricts, setMasterDistricts] = useState([]);
+  const [masterBloodGroups, setMasterBloodGroups] = useState([]);
+  const [masterMaritalStatuses, setMasterMaritalStatuses] = useState([]);
+
+  const calculateAge = (dobString) => {
+    if (!dobString) return '';
+    const dob = new Date(dobString);
+    const today = new Date();
+    
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+
+    if (days < 0) {
+      months--;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    if (years < 0) return '';
+    return `${years}Y ${months}M ${days}D`;
+  };
+
+  const handleMemberChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'country') {
+      setNewMemberForm(prev => ({ ...prev, [name]: value, state: '', city: '' }));
+    } else if (name === 'state') {
+      setNewMemberForm(prev => ({ ...prev, [name]: value, city: '' }));
+    } else if (name === 'dob') {
+      const age = calculateAge(value);
+      setNewMemberForm(prev => ({ ...prev, [name]: value, patientAge: age }));
+    } else {
+      setNewMemberForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
   const [toastMessage, setToastMessage] = useState('');
 
   const navigate = useNavigate();
@@ -33,6 +97,7 @@ export default function Navbar() {
         const parsedActive = JSON.parse(activeData);
         setPatientData(parsedActive);
         setActivePatientId(parsedActive.patientId || 1);
+        setNewMemberForm(prev => ({ ...prev, mobileNo: parsedActive.patientPhoneNumber || parsedActive.mobileNo || '' }));
         
         if (listData) {
           const parsedList = JSON.parse(listData);
@@ -88,6 +153,73 @@ export default function Navbar() {
     }
   }, []);
 
+  // Fetch master data when family modal opens
+  useEffect(() => {
+    if (showFamilyModal) {
+      const fetchMasterData = async () => {
+        try {
+          if (masterGenders.length === 0) {
+            const genderRes = await apiService.get(ENDPOINTS.MASTER.GET_ALL_GENDER);
+            if (genderRes.status === 200) setMasterGenders(genderRes.response || []);
+          }
+          if (masterRelations.length === 0) {
+            const relationRes = await apiService.get(ENDPOINTS.MASTER.GET_ALL_RELATION);
+            if (relationRes.status === 200) setMasterRelations(relationRes.response || []);
+          }
+          if (masterCountries.length === 0) {
+            const countryRes = await apiService.get(ENDPOINTS.MASTER.GET_ALL_COUNTRY);
+            if (countryRes.status === 200) setMasterCountries(countryRes.response || []);
+          }
+          if (masterBloodGroups.length === 0) {
+            const bgRes = await apiService.get(ENDPOINTS.MASTER.GET_ALL_BLOOD_GROUP);
+            if (bgRes.status === 200) setMasterBloodGroups(bgRes.response || []);
+          }
+          if (masterMaritalStatuses.length === 0) {
+            const msRes = await apiService.get(ENDPOINTS.MASTER.GET_ALL_MARITAL_STATUS);
+            if (msRes.status === 200) setMasterMaritalStatuses(msRes.response || []);
+          }
+        } catch (err) {
+          console.error("Failed to fetch master data", err);
+        }
+      };
+      fetchMasterData();
+    }
+  }, [showFamilyModal]);
+
+  // Fetch states when country changes
+  useEffect(() => {
+    if (newMemberForm.country) {
+      const fetchStates = async () => {
+        try {
+          const stateRes = await apiService.get(`${ENDPOINTS.MASTER.GET_STATE_BY_COUNTRY_ID}/${newMemberForm.country}`);
+          if (stateRes.status === 200) setMasterStates(stateRes.response || []);
+        } catch (err) {
+          console.error("Failed to fetch states", err);
+        }
+      };
+      fetchStates();
+    } else {
+      setMasterStates([]);
+    }
+  }, [newMemberForm.country]);
+
+  // Fetch districts when state changes
+  useEffect(() => {
+    if (newMemberForm.state) {
+      const fetchDistricts = async () => {
+        try {
+          const distRes = await apiService.get(`${ENDPOINTS.MASTER.GET_DISTRICT_BY_STATE_ID}/${newMemberForm.state}`);
+          if (distRes.status === 200) setMasterDistricts(distRes.response || []);
+        } catch (err) {
+          console.error("Failed to fetch districts", err);
+        }
+      };
+      fetchDistricts();
+    } else {
+      setMasterDistricts([]);
+    }
+  }, [newMemberForm.state]);
+
   const handleNavCollapse = () => setIsNavCollapsed(!isNavCollapsed);
 
   const handleLogout = (e) => {
@@ -98,11 +230,103 @@ export default function Navbar() {
     }
   };
 
-  const handleAddFamilyMember = (e) => {
+  const handleAddFamilyMember = async (e) => {
     e.preventDefault();
-    // To be implemented later
-    alert('Add Family Member functionality coming soon!');
-    setShowProfileMenu(false);
+    
+    // Split emergency contact name
+    const emerParts = (newMemberForm.emergencyContactName || '').trim().split(' ');
+    const emerFn = emerParts[0] || '';
+    const emerLn = emerParts.slice(1).join(' ') || '';
+    
+    // Get city name from district array
+    const selectedDistrict = masterDistricts.find(d => String(d.id) === String(newMemberForm.city));
+    const patientCity = selectedDistrict ? selectedDistrict.districtName : '';
+
+    const payload = {
+      patientFn: newMemberForm.firstName,
+      patientMn: newMemberForm.middleName,
+      patientLn: newMemberForm.lastName,
+      patientDob: newMemberForm.dob,
+      patientAge: newMemberForm.patientAge,
+      patientGenderId: parseInt(newMemberForm.gender) || 0,
+      bloodGroupId: parseInt(newMemberForm.bloodGroup) || 0,
+      patientEmailId: newMemberForm.email,
+      patientMobileNumber: newMemberForm.mobileNo,
+      patientRelationId: parseInt(newMemberForm.relation) || 0,
+      patientMaritalStatusId: parseInt(newMemberForm.maritalStatus) || 0,
+      emerFn: emerFn,
+      emerLn: emerLn,
+      emerMobile: newMemberForm.emergencyContactNo,
+      patientAddress1: newMemberForm.address1,
+      patientAddress2: newMemberForm.address2,
+      patientCountryId: parseInt(newMemberForm.country) || 0,
+      patientStateId: parseInt(newMemberForm.state) || 0,
+      patientDistrictId: parseInt(newMemberForm.city) || 0,
+      patientPincode: newMemberForm.pincode,
+      patientCity: patientCity
+    };
+
+    try {
+      const response = await apiService.post(ENDPOINTS.PATIENTS.ADD_FAMILY_MEMBER, payload);
+      if (response && response.status === 200 && response.response && response.response.patient) {
+        showToast('Family member added successfully!');
+        setShowFamilyModal(false);
+        
+        // Extract new patient data
+        const newPatient = response.response.patient;
+        
+        // Find relation name
+        const selectedRelation = masterRelations.find(r => String(r.id) === String(newMemberForm.relation));
+        const relationName = selectedRelation ? selectedRelation.relationName : 'Family Member';
+
+        const newPatientData = {
+          patientId: newPatient.id,
+          uhidNo: newPatient.uhidNo,
+          patientName: newPatient.fullName,
+          relation: relationName,
+          gender: newPatient.genderName,
+          age: newPatient.patientAge,
+          dob: newPatient.patientDob,
+          mobileNo: newPatient.patientMobileNumber,
+        };
+
+        // Update component state
+        const mappedNewPatient = {
+          id: newPatientData.patientId,
+          name: newPatientData.patientName,
+          relation: newPatientData.relation,
+          gender: newPatientData.gender || 'N/A',
+          age: newPatientData.age || 'N/A',
+          dob: newPatientData.dob || 'N/A',
+          patientId: newPatientData.patientId,
+          originalData: newPatientData
+        };
+
+        setPatients(prev => [...prev, mappedNewPatient]);
+
+        // Update local storage
+        const currentListStr = localStorage.getItem('patientList');
+        let currentList = [];
+        if (currentListStr) {
+          try { currentList = JSON.parse(currentListStr); } catch (e) {}
+        }
+        currentList.push(newPatientData);
+        localStorage.setItem('patientList', JSON.stringify(currentList));
+
+        // Reset form
+        setNewMemberForm({
+          firstName: '', middleName: '', lastName: '', mobileNo: '', altMobileNo: '',
+          relation: '', email: '', gender: '', maritalStatus: '', bloodGroup: '',
+          dob: '', patientAge: '', emergencyContactName: '', emergencyContactNo: '',
+          address1: '', address2: '', country: '', state: '', city: '', pincode: ''
+        });
+      } else {
+        showToast(response?.message || 'Failed to add family member');
+      }
+    } catch (error) {
+      console.error("Failed to add family member:", error);
+      showToast('Error adding family member');
+    }
   };
 
   const handleSelectHospital = (hospital) => {
@@ -696,60 +920,133 @@ export default function Navbar() {
               </div>
 
               {/* Add New Member Form */}
-              <div className="card bg-light border-0 p-3 rounded-3">
+              <div className="card bg-light border-0 p-3 rounded-3 mt-3">
                 <h6 className="fw-bold text-dark mb-3">
                   <i className="fas fa-user-plus text-primary me-2"></i> Add New Family Member
                 </h6>
                 <form onSubmit={handleAddFamilyMember}>
                   <div className="row g-2">
-                    <div className="col-md-6">
-                      <label className="form-label small fw-bold text-muted">Full Name</label>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="e.g. Ananya Doe"
-                        value={newMemberName}
-                        onChange={(e) => setNewMemberName(e.target.value)}
-                        required
-                      />
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">First Name</label>
+                      <input type="text" className="form-control form-control-sm" name="firstName" value={newMemberForm.firstName} onChange={handleMemberChange} required />
                     </div>
-                    <div className="col-md-6">
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Middle Name</label>
+                      <input type="text" className="form-control form-control-sm" name="middleName" value={newMemberForm.middleName} onChange={handleMemberChange} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Last Name</label>
+                      <input type="text" className="form-control form-control-sm" name="lastName" value={newMemberForm.lastName} onChange={handleMemberChange} required />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Mobile No.</label>
+                      <input type="text" className="form-control form-control-sm" name="mobileNo" value={newMemberForm.mobileNo} onChange={handleMemberChange} required />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Alternate Mobile No.</label>
+                      <input type="text" className="form-control form-control-sm" name="altMobileNo" value={newMemberForm.altMobileNo} onChange={handleMemberChange} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Email</label>
+                      <input type="email" className="form-control form-control-sm" name="email" value={newMemberForm.email} onChange={handleMemberChange} />
+                    </div>
+
+                    <div className="col-md-4">
                       <label className="form-label small fw-bold text-muted">Relationship</label>
-                      <select
-                        className="form-select form-select-select form-select-sm"
-                        value={newMemberRelation}
-                        onChange={(e) => setNewMemberRelation(e.target.value)}
-                      >
-                        <option value="Spouse">Spouse</option>
-                        <option value="Child / Son">Child / Son</option>
-                        <option value="Child / Daughter">Child / Daughter</option>
-                        <option value="Parent / Father">Parent / Father</option>
-                        <option value="Parent / Mother">Parent / Mother</option>
-                        <option value="Sibling">Sibling</option>
-                        <option value="Other">Other</option>
+                      <select className="form-select form-select-sm" name="relation" value={newMemberForm.relation} onChange={handleMemberChange} required>
+                        <option value="">Select Relation</option>
+                        {masterRelations.map(rel => (
+                          <option key={rel.id} value={rel.id}>{rel.relationName}</option>
+                        ))}
                       </select>
                     </div>
-                    <div className="col-md-6">
-                      <label className="form-label small fw-bold text-muted">Date of Birth</label>
-                      <input
-                        type="date"
-                        className="form-control form-control-sm"
-                        value={newMemberDob}
-                        onChange={(e) => setNewMemberDob(e.target.value)}
-                      />
-                    </div>
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                       <label className="form-label small fw-bold text-muted">Gender</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={newMemberGender}
-                        onChange={(e) => setNewMemberGender(e.target.value)}
-                      >
-                        <option value="Female">Female</option>
-                        <option value="Male">Male</option>
-                        <option value="Other">Other</option>
+                      <select className="form-select form-select-sm" name="gender" value={newMemberForm.gender} onChange={handleMemberChange} required>
+                        <option value="">Select Gender</option>
+                        {masterGenders.map(g => (
+                          <option key={g.id} value={g.id}>{g.genderName}</option>
+                        ))}
                       </select>
                     </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Marital Status</label>
+                      <select className="form-select form-select-sm" name="maritalStatus" value={newMemberForm.maritalStatus} onChange={handleMemberChange}>
+                        <option value="">Select Status</option>
+                        {masterMaritalStatuses.map(ms => (
+                          <option key={ms.id} value={ms.id}>{ms.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Blood Group</label>
+                      <select className="form-select form-select-sm" name="bloodGroup" value={newMemberForm.bloodGroup} onChange={handleMemberChange}>
+                        <option value="">Select Group</option>
+                        {masterBloodGroups.map(bg => (
+                          <option key={bg.bloodGroupId} value={bg.bloodGroupId}>{bg.bloodGroupName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Date of Birth</label>
+                      <input type="date" className="form-control form-control-sm" name="dob" value={newMemberForm.dob} onChange={handleMemberChange} required />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Age (Auto-calculated)</label>
+                      <input type="text" className="form-control form-control-sm bg-light" name="patientAge" value={newMemberForm.patientAge} readOnly placeholder="0Y 0M 0D" />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Emerg. Contact Name</label>
+                      <input type="text" className="form-control form-control-sm" name="emergencyContactName" value={newMemberForm.emergencyContactName} onChange={handleMemberChange} />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Emerg. Contact Number</label>
+                      <input type="text" className="form-control form-control-sm" name="emergencyContactNo" value={newMemberForm.emergencyContactNo} onChange={handleMemberChange} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Address 1</label>
+                      <input type="text" className="form-control form-control-sm" name="address1" value={newMemberForm.address1} onChange={handleMemberChange} />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Address 2</label>
+                      <input type="text" className="form-control form-control-sm" name="address2" value={newMemberForm.address2} onChange={handleMemberChange} />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Country</label>
+                      <select className="form-select form-select-sm" name="country" value={newMemberForm.country} onChange={handleMemberChange}>
+                        <option value="">Select Country</option>
+                        {masterCountries.map(c => (
+                          <option key={c.id} value={c.id}>{c.countryName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">State</label>
+                      <select className="form-select form-select-sm" name="state" value={newMemberForm.state} onChange={handleMemberChange} disabled={!newMemberForm.country}>
+                        <option value="">Select State</option>
+                        {masterStates.map(s => (
+                          <option key={s.id} value={s.id}>{s.stateName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">City/District</label>
+                      <select className="form-select form-select-sm" name="city" value={newMemberForm.city} onChange={handleMemberChange} disabled={!newMemberForm.state}>
+                        <option value="">Select District</option>
+                        {masterDistricts.map(d => (
+                          <option key={d.id} value={d.id}>{d.districtName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Pincode</label>
+                      <input type="text" className="form-control form-control-sm" name="pincode" value={newMemberForm.pincode} onChange={handleMemberChange} />
+                    </div>
+
                     <div className="col-12 mt-3 text-end">
                       <button type="submit" className="btn btn-primary btn-sm px-3 fw-bold">
                         <i className="fas fa-plus me-1"></i> Add Member

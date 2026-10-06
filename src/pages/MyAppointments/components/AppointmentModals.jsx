@@ -817,6 +817,12 @@ export function AppointmentModals({
                                 <div className="col-12 col-md-6">
                                   <span className="text-muted">Payment Via:</span><br/><strong className="text-dark">{refundDetailsData.paymentVia}</strong>
                                 </div>
+                                <div className="col-12 col-md-6">
+                                  <span className="text-muted">Reference Type:</span><br/><strong className="text-dark">{refundDetailsData.gatewayReferenceType || 'N/A'}</strong>
+                                </div>
+                                <div className="col-12 col-md-6">
+                                  <span className="text-muted">Reference No:</span><br/><strong className="text-dark">{refundDetailsData.gatewayReferenceNo || 'N/A'}</strong>
+                                </div>
                               </div>
                             ) : (
                               <div className="text-muted mt-2">Refund details not available.</div>

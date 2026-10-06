@@ -157,6 +157,9 @@ export default function Login() {
       if (data.status === 200) {
         // Store the token
         localStorage.setItem('token', data.response.token);
+        if (data.response.refreshToken) {
+          localStorage.setItem('refreshToken', data.response.refreshToken);
+        }
         // Store patient details if available
         if (data.response.patientIdResponseList && data.response.patientIdResponseList.length > 0) {
           localStorage.setItem('patientDetails', JSON.stringify(data.response.patientIdResponseList[0]));
