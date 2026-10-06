@@ -260,6 +260,35 @@ export default function HealthRecords() {
     }
   };
 
+  const handleViewStudy = async (record) => {
+    if (!record.uhidNo || !record.accessionNo) {
+      alert("Missing patient or order details to view study.");
+      return;
+    }
+    
+    setDownloadingId(`${record.radOrderDtId}-study`);
+    try {
+      const orderNoEncoded = encodeURIComponent(record.accessionNo);
+      const endpoint = `${ENDPOINTS.RADIOLOGY.PACS_LAUNCH_URL}?uhid=${record.uhidNo}&orderNo=${orderNoEncoded}`;
+      
+      const res = await apiService.get(endpoint);
+      if (res && res.response && res.response.weasisUrl) {
+        window.open(res.response.weasisUrl, '_blank');
+      } else {
+        alert("Study details not available yet.");
+      }
+    } catch (error) {
+      console.error("Failed to launch study", error);
+      if (error.data && error.data.detail) {
+        alert(error.data.detail);
+      } else {
+        alert("Failed to open study. Please try again.");
+      }
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   // 3. Radiology Reports Logic
   useEffect(() => {
     if (activeTab === 'radiology-reports') {
@@ -963,9 +992,14 @@ export default function HealthRecords() {
                                     type="button"
                                     className="btn btn-outline-primary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
                                     style={{ fontSize: '0.8rem' }}
-                                    onClick={() => handleOpenDoc('Radiology Study', item)}
+                                    onClick={() => handleViewStudy(item)}
+                                    disabled={downloadingId === `${item.radOrderDtId}-study`}
                                   >
-                                    <i className="fa-regular fa-image"></i>
+                                    {downloadingId === `${item.radOrderDtId}-study` ? (
+                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                      <i className="fa-regular fa-image"></i>
+                                    )}
                                     <span>View Study</span>
                                   </button>
                                 )}
