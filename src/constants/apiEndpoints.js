@@ -78,6 +78,7 @@ export const ENDPOINTS = {
   RADIOLOGY: {
     PACS_STUDY_LIST: '/radiology/getPACSStudyList',
     PDF_REPORT: '/report/radiologyReport',
+    PACS_LAUNCH_URL: '/api/pacs/launch-url',
   },
   IPD: {
     ADMISSION_DISCHARGE_LIST: '/ipd/activeAdmissionAndDischargeAdmissionList',
