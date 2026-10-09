@@ -142,7 +142,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
             about: '',
             expertise: [],
             education: [],
+            workExperience: [],
             memberships: [],
+            awardsAndDistinctions: [],
             languages: ['English', 'Hindi'],
             sessions: doc.sessionResponseLists || []
           }));
@@ -196,7 +198,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
             about: '',
             expertise: [],
             education: [],
+            workExperience: [],
             memberships: [],
+            awardsAndDistinctions: [],
             languages: ['English', 'Hindi'],
             sessions: doc.sessionResponseLists || []
           }));
@@ -360,7 +364,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
           about: basicInfo.profileDescription || doc.about,
           gender: basicInfo.gender || doc.gender,
           education: details.education && details.education.length > 0 ? details.education : doc.education,
-          memberships: details.memberships && details.memberships.length > 0 ? details.memberships : doc.memberships,
+          workExperience: details.workExperience && details.workExperience.length > 0 ? details.workExperience : (doc.workExperience || []),
+          memberships: details.memberships && details.memberships.length > 0 ? details.memberships : (doc.memberships || []),
+          awardsAndDistinctions: details.awardsAndDistinctions && details.awardsAndDistinctions.length > 0 ? details.awardsAndDistinctions : (doc.awardsAndDistinctions || []),
           expertise: details.specialtyInterests && details.specialtyInterests.length > 0 ? details.specialtyInterests : doc.expertise,
           languages: details.languages && details.languages.length > 0 ? details.languages : doc.languages,
           sessions: details.sessionResponseList || [],
@@ -1029,32 +1035,68 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     <div className="mt-3">
                       <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>About</h6>
                       <p className="text-secondary small lh-base mb-3">
-                        {selectedDoctor.about || 'Experienced medical specialist committed to providing compassionate care and evidence-based treatment to patients of all age groups.'}
+                        {selectedDoctor.about ? selectedDoctor.about.replace(/<[^>]*>?/gm, '').trim() : 'Experienced medical specialist committed to providing compassionate care and evidence-based treatment to patients of all age groups.'}
                       </p>
 
                       {/* Areas of Expertise */}
-                      <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Areas of Expertise</h6>
-                      <ul className="text-secondary small ps-3 mb-3">
-                        {(selectedDoctor.expertise || ['Head & Neck Surgery', 'Sinus Disorders', 'Pediatric Care', 'Hearing Disorders']).map((item, idx) => (
-                          <li key={idx} className="mb-0.5">{item}</li>
-                        ))}
-                      </ul>
+                      {selectedDoctor.expertise && selectedDoctor.expertise.length > 0 && (
+                        <>
+                          <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Areas of Expertise</h6>
+                          <ul className="text-secondary small ps-3 mb-3">
+                            {selectedDoctor.expertise.map((item, idx) => (
+                              <li key={idx} className="mb-0.5">{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
 
                       {/* Education */}
-                      <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Education</h6>
-                      <ul className="text-secondary small ps-3 mb-3">
-                        {(selectedDoctor.education || ['MBBS – AIIMS, New Delhi', 'MD – AIIMS, New Delhi']).map((item, idx) => (
-                          <li key={idx} className="mb-0.5">{item}</li>
-                        ))}
-                      </ul>
+                      {selectedDoctor.education && selectedDoctor.education.length > 0 && (
+                        <>
+                          <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Education</h6>
+                          <ul className="text-secondary small ps-3 mb-3">
+                            {selectedDoctor.education.map((item, idx) => (
+                              <li key={idx} className="mb-0.5">{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+
+                      {/* Work Experience */}
+                      {selectedDoctor.workExperience && selectedDoctor.workExperience.length > 0 && (
+                        <>
+                          <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Work Experience</h6>
+                          <ul className="text-secondary small ps-3 mb-3">
+                            {selectedDoctor.workExperience.map((item, idx) => (
+                              <li key={idx} className="mb-0.5">{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
 
                       {/* Memberships */}
-                      <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Memberships</h6>
-                      <ul className="text-secondary small ps-3 mb-0">
-                        {(selectedDoctor.memberships || ['Association of Otolaryngologists of India (AOI)', 'Indian Medical Association (IMA)']).map((item, idx) => (
-                          <li key={idx} className="mb-0.5">{item}</li>
-                        ))}
-                      </ul>
+                      {((selectedDoctor.memberships && selectedDoctor.memberships.length > 0) || (!selectedDoctor.workExperience?.length && !selectedDoctor.awardsAndDistinctions?.length)) && (
+                        <>
+                          <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Memberships</h6>
+                          <ul className="text-secondary small ps-3 mb-3">
+                            {(selectedDoctor.memberships && selectedDoctor.memberships.length > 0 ? selectedDoctor.memberships : ['Association of Otolaryngologists of India (AOI)', 'Indian Medical Association (IMA)']).map((item, idx) => (
+                              <li key={idx} className="mb-0.5">{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+
+                      {/* Awards and Distinctions */}
+                      {selectedDoctor.awardsAndDistinctions && selectedDoctor.awardsAndDistinctions.length > 0 && (
+                        <>
+                          <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.92rem' }}>Awards and Distinctions</h6>
+                          <ul className="text-secondary small ps-3 mb-0">
+                            {selectedDoctor.awardsAndDistinctions.map((item, idx) => (
+                              <li key={idx} className="mb-0.5">{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
