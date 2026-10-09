@@ -36,10 +36,10 @@ export const ENDPOINTS = {
   APPOINTMENTS: {
     HISTORY_LIST: '/mobileController/getAppointmentHistoryList',
     OPD_REPORTS_LIST: '/opd/getOpdReportsList',
+    OPD_REPORT_DEPARTMENT_LIST: '/opd/getOpdReportDepartmentList',
     OPD_PRESCRIPTION_SLIP: '/report/opdPrescriptionSlip',
     OPD_CASE_SHEET_REPORT: '/report/opdCaseSheetReport',
     OPD_INVOICE: '/report/opdInvoice',
-    NIS_MEDICINE_REPORT: '/report/nisMedicineReport',
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
     RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
     CANCEL_APPOINTMENT: '/registration/cancelAppointment',
@@ -76,6 +76,7 @@ export const ENDPOINTS = {
     PDF_REPORT: '/report/labInvestigationReport',
   },
   RADIOLOGY: {
+    PACS_MODALITY_LIST: '/radiology/getPACSModalityList',
     PACS_STUDY_LIST: '/radiology/getPACSStudyList',
     PDF_REPORT: '/report/radiologyReport',
     PACS_LAUNCH_URL: '/api/pacs/launch-url',
