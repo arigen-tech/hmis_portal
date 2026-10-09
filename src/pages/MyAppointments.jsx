@@ -459,7 +459,7 @@ export default function MyAppointments() {
                   title="OPD Consultations"
                   activeSubTab={activeSubTab}
                   setActiveSubTab={setActiveSubTab}
-                  upcomingCount={upcomingAppointments.length}
+                  upcomingCount={pendingCounts?.opd ?? (activeSubTab === 'upcoming' ? totalElements : 0)}
                 />
 
                 {/* Quick Banner for Diagnostics */}
@@ -519,6 +519,7 @@ export default function MyAppointments() {
                   subtitle="View, manage and take action on your radiology appointments."
                   activeSubTab={activeSubTab}
                   setActiveSubTab={setActiveSubTab}
+                  upcomingCount={pendingCounts?.rad ?? (activeSubTab === 'upcoming' ? totalElements : 0)}
                   showCompleted={false}
                 />
 
@@ -539,6 +540,7 @@ export default function MyAppointments() {
                   subtitle="View, manage and take action on your lab test appointments."
                   activeSubTab={activeSubTab}
                   setActiveSubTab={setActiveSubTab}
+                  upcomingCount={pendingCounts?.lab ?? (activeSubTab === 'upcoming' ? totalElements : 0)}
                   showCompleted={false}
                 />
 
@@ -554,8 +556,8 @@ export default function MyAppointments() {
             {activeMenu === 'diagnostics' && (
               <div className="diagnostics-view-container">
                 <DiagnosticsTabs 
-                  labCount={labAppointments.length}
-                  radiologyCount={radiologyAppointments.length}
+                  labCount={pendingCounts?.lab ?? labAppointments.length}
+                  radiologyCount={pendingCounts?.rad ?? radiologyAppointments.length}
                   setActiveMenu={setActiveMenu}
                   setDiagnosticTab={setDiagnosticTab}
                   handleOpenBookModal={handleOpenBookModal}

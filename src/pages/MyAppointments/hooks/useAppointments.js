@@ -31,7 +31,7 @@ export function useAppointments({
         hospitalId: parsedHospital.id,
         patientId: parsedPatient.patientId,
         deptTypeCode: deptCode,
-        includeAllHistory: 'false',
+        includeAllHistory: historyFilter === 'all_history' ? 'true' : 'false',
         page: 0,
         size: 1,
         visitStatus: API_VISIT_STATUS.NO
@@ -39,7 +39,8 @@ export function useAppointments({
       try {
         const res = await apiService.get(`${ENDPOINTS.APPOINTMENTS.HISTORY_LIST}?${queryParams.toString()}`);
         if (res.status === 200 && res.response) {
-          if (res.response.content) return res.response.totalElements || 0;
+          if (res.response.totalElements !== undefined) return res.response.totalElements;
+          if (res.response.content) return res.response.totalElements || res.response.content.length || 0;
           return res.response.length || 0;
         }
       } catch (e) {
@@ -55,7 +56,7 @@ export function useAppointments({
     ]).then(([opd, lab, rad]) => {
       setPendingCounts({ opd, lab, rad });
     });
-  }, [parsedPatient, parsedHospital, refreshTrigger]);
+  }, [parsedPatient, parsedHospital, refreshTrigger, historyFilter]);
 
   useEffect(() => {
     let ignore = false;
@@ -141,14 +142,17 @@ export function useAppointments({
           
           if (!ignore && response.status === 200 && response.response) {
             let dataToMap;
+            let responseTotal = 0;
             if (response.response.content) {
                dataToMap = response.response.content;
+               responseTotal = response.response.totalElements || 0;
                setTotalPages(response.response.totalPages || 0);
-               setTotalElements(response.response.totalElements || 0);
+               setTotalElements(responseTotal);
             } else {
                const fullArray = response.response;
+               responseTotal = fullArray.length;
                setTotalPages(Math.ceil(fullArray.length / 5));
-               setTotalElements(fullArray.length);
+               setTotalElements(responseTotal);
                dataToMap = fullArray.slice(page * 5, (page + 1) * 5);
             }
             
@@ -157,13 +161,20 @@ export function useAppointments({
             if (deptCode === DEPT_CODE.OPD) {
                if (activeSubTab === 'upcoming') {
                  setUpcomingAppointments(mapped);
+                 setPendingCounts(prev => ({ ...prev, opd: responseTotal }));
                } else {
                  setPastAppointments(mapped);
                }
             } else if (deptCode === DEPT_CODE.LAB) {
                setLabAppointments(mapped);
+               if (activeSubTab === 'upcoming') {
+                 setPendingCounts(prev => ({ ...prev, lab: responseTotal }));
+               }
             } else if (deptCode === DEPT_CODE.RAD) {
                setRadiologyAppointments(mapped);
+               if (activeSubTab === 'upcoming') {
+                 setPendingCounts(prev => ({ ...prev, rad: responseTotal }));
+               }
             } else {
                setLabAppointments(mapped.filter(a => a.type === APPOINTMENT_TYPE.LAB));
                setRadiologyAppointments(mapped.filter(a => a.type === APPOINTMENT_TYPE.RADIOLOGY));

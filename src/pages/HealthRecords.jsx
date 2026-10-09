@@ -10,16 +10,21 @@ export default function HealthRecords() {
   const [downloadSuccessToast, setDownloadSuccessToast] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
-  
+
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfName, setPdfName] = useState('');
 
   // Filters state
-  const [opdSpecialtyFilter, setOpdSpecialtyFilter] = useState('All Specialties');
+  const [opdSpecialtyFilter, setOpdSpecialtyFilter] = useState('');
+  const [opdDepartments, setOpdDepartments] = useState([]);
+  const [hospitalTrigger, setHospitalTrigger] = useState(0);
   const [labSearchQuery, setLabSearchQuery] = useState('');
-  const [radModalityFilter, setRadModalityFilter] = useState('All Modalities');
-  const [radStatusFilter, setRadStatusFilter] = useState('All');
+  const [debouncedLabSearch, setDebouncedLabSearch] = useState('');
+  const [radModalityFilter, setRadModalityFilter] = useState('');
+  const [radStatusFilter, setRadStatusFilter] = useState('');
+  const [radModalities, setRadModalities] = useState([]);
   const [ipdLabSearchQuery, setIpdLabSearchQuery] = useState('');
+  const [debouncedIpdLabSearch, setDebouncedIpdLabSearch] = useState('');
 
   // Sidebar Menu Items matching the reference design
   const menuItems = [
@@ -64,43 +69,132 @@ export default function HealthRecords() {
   const [dischargeLoading, setDischargeLoading] = useState(false);
   const dischargePageSize = 5;
 
+  // Listen for hospital/patient changes from Navbar
+  useEffect(() => {
+    const handleSwitch = () => {
+      setHospitalTrigger(prev => prev + 1);
+      setOpdSpecialtyFilter('');
+      setOpdPage(0);
+      setLabSearchQuery('');
+      setDebouncedLabSearch('');
+      setLabPage(0);
+      setIpdLabSearchQuery('');
+      setDebouncedIpdLabSearch('');
+      setIpdLabPage(0);
+      setRadModalityFilter('');
+      setRadStatusFilter('');
+      setRadPage(0);
+    };
+    window.addEventListener('hospitalSwitched', handleSwitch);
+    window.addEventListener('patientSwitched', handleSwitch);
+    return () => {
+      window.removeEventListener('hospitalSwitched', handleSwitch);
+      window.removeEventListener('patientSwitched', handleSwitch);
+    };
+  }, []);
+
+  // Debounce Lab Search query by 1000ms (1 second)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedLabSearch(labSearchQuery);
+      setLabPage(0);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [labSearchQuery]);
+
+  // Debounce IPD Lab Search query by 1000ms (1 second)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedIpdLabSearch(ipdLabSearchQuery);
+      setIpdLabPage(0);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [ipdLabSearchQuery]);
+
+  // Fetch Department list for Specialty dropdown in OPD tab
+  useEffect(() => {
+    if (activeTab === 'opd-prescriptions') {
+      const fetchOpdDepartments = async () => {
+        try {
+          const hospitalStr = localStorage.getItem('selectedHospital');
+          let hospitalId = 12;
+          if (hospitalStr) {
+            const parsed = JSON.parse(hospitalStr);
+            if (parsed && (parsed.id || parsed.hospitalId)) {
+              hospitalId = parsed.id || parsed.hospitalId;
+            }
+          }
+
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && (parsedActive.patientId || parsedActive.id)) {
+              patientId = parsedActive.patientId || parsedActive.id;
+            }
+          }
+
+          if (!patientId || !hospitalId) return;
+
+          const res = await apiService.get(
+            `${ENDPOINTS.APPOINTMENTS.OPD_REPORT_DEPARTMENT_LIST}?patientId=${patientId}&hospitalId=${hospitalId}`
+          );
+
+          if (res && res.response && Array.isArray(res.response)) {
+            setOpdDepartments(res.response);
+          } else if (Array.isArray(res)) {
+            setOpdDepartments(res);
+          } else {
+            setOpdDepartments([]);
+          }
+        } catch (error) {
+          console.error("Failed to fetch OPD department list:", error);
+        }
+      };
+      fetchOpdDepartments();
+    }
+  }, [activeTab, hospitalTrigger]);
+
+  // Fetch OPD Reports list with pagination and optional departmentId filter
   useEffect(() => {
     if (activeTab === 'opd-prescriptions') {
       const fetchOpdReports = async () => {
         setOpdLoading(true);
         try {
-          const hospitalStr = localStorage.getItem('selectedHospital');
-          let hospitalId = 12;
-          if (hospitalStr) {
-             const parsed = JSON.parse(hospitalStr);
-             if (parsed && parsed.id) hospitalId = parsed.id;
-          }
-          
           const activeData = localStorage.getItem('patientDetails');
           let patientId = null;
           if (activeData) {
-             const parsedActive = JSON.parse(activeData);
-             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
-          }
-          
-          if (!patientId || !hospitalId) {
-             setOpdLoading(false);
-             return;
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && (parsedActive.patientId || parsedActive.id)) {
+              patientId = parsedActive.patientId || parsedActive.id;
+            }
           }
 
-          const res = await apiService.get(`${ENDPOINTS.APPOINTMENTS.OPD_REPORTS_LIST}?page=${opdPage}&size=${opdPageSize}&hospitalId=${hospitalId}&patientId=${patientId}`);
-          
+          if (!patientId) {
+            setOpdLoading(false);
+            return;
+          }
+
+          let url = `${ENDPOINTS.APPOINTMENTS.OPD_REPORTS_LIST}?page=${opdPage}&size=${opdPageSize}&patientId=${patientId}`;
+          if (opdSpecialtyFilter && opdSpecialtyFilter !== 'All Specialties') {
+            url += `&departmentId=${opdSpecialtyFilter}`;
+          }
+
+          const res = await apiService.get(url);
+
           if (res && res.response && res.response.content) {
             const mappedData = res.response.content.map(item => {
               let date = item.visitDateTime || 'N/A';
               if (date.includes(' ')) date = date.split(' ')[0];
-              
+
               return {
                 id: item.visitId || Math.random().toString(),
                 date: date,
                 doctor: item.doctorName || 'Not Assigned',
                 specialty: item.specialty || 'General',
-                reason: item.departmentName || 'Consultation',
+                reason: item.departmentName || item.specialty || 'Consultation',
                 vitals: { bp: 'N/A', pulse: 'N/A', temp: 'N/A', spo2: 'N/A' },
                 medicines: [],
                 instructions: 'N/A',
@@ -111,10 +205,10 @@ export default function HealthRecords() {
               };
             });
             setOpdData(mappedData);
-            setOpdTotalElements(res.response.totalElements || mappedData.length);
+            setOpdTotalElements(res.response.totalElements ?? mappedData.length);
           } else {
-             setOpdData([]);
-             setOpdTotalElements(0);
+            setOpdData([]);
+            setOpdTotalElements(0);
           }
         } catch (error) {
           console.error("Failed to fetch OPD reports:", error);
@@ -124,7 +218,7 @@ export default function HealthRecords() {
       };
       fetchOpdReports();
     }
-  }, [activeTab, opdPage]);
+  }, [activeTab, opdPage, opdSpecialtyFilter, hospitalTrigger]);
 
   // 2. Lab Reports Logic
   useEffect(() => {
@@ -135,32 +229,37 @@ export default function HealthRecords() {
           const hospitalStr = localStorage.getItem('selectedHospital');
           let hospitalId = 12;
           if (hospitalStr) {
-             const parsed = JSON.parse(hospitalStr);
-             if (parsed && parsed.id) hospitalId = parsed.id;
+            const parsed = JSON.parse(hospitalStr);
+            if (parsed && (parsed.id || parsed.hospitalId)) hospitalId = parsed.id || parsed.hospitalId;
           }
-          
+
           const activeData = localStorage.getItem('patientDetails');
           let patientId = null;
           if (activeData) {
-             const parsedActive = JSON.parse(activeData);
-             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
-          }
-          
-          if (!patientId || !hospitalId) {
-             setLabLoading(false);
-             return;
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && (parsedActive.patientId || parsedActive.id)) patientId = parsedActive.patientId || parsedActive.id;
           }
 
-          const res = await apiService.get(`${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?page=${labPage}&size=${labPageSize}&hospitalId=${hospitalId}&patientId=${patientId}`);
-          
+          if (!patientId || !hospitalId) {
+            setLabLoading(false);
+            return;
+          }
+
+          let url = `${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?hospitalId=${hospitalId}&patientId=${patientId}&IPD=false&page=${labPage}&size=${labPageSize}`;
+          if (debouncedLabSearch.trim()) {
+            url += `&investigationName=${encodeURIComponent(debouncedLabSearch.trim())}`;
+          }
+
+          const res = await apiService.get(url);
+
           if (res && res.response && res.response.content) {
             setLabData(res.response.content);
-            setLabTotalElements(res.response.totalElements || res.response.content.length);
-            setLabTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
+            setLabTotalElements(res.response.totalElements ?? res.response.content.length);
+            setLabTotalPages(res.response.totalPages ?? Math.ceil((res.response.totalElements || res.response.content.length) / labPageSize));
           } else {
-             setLabData([]);
-             setLabTotalElements(0);
-             setLabTotalPages(0);
+            setLabData([]);
+            setLabTotalElements(0);
+            setLabTotalPages(0);
           }
         } catch (error) {
           console.error("Failed to fetch Lab reports:", error);
@@ -170,7 +269,7 @@ export default function HealthRecords() {
       };
       fetchLabReports();
     }
-  }, [activeTab, labPage]);
+  }, [activeTab, labPage, debouncedLabSearch, hospitalTrigger]);
 
   // 2b. IPD Lab Reports Logic
   useEffect(() => {
@@ -181,32 +280,37 @@ export default function HealthRecords() {
           const hospitalStr = localStorage.getItem('selectedHospital');
           let hospitalId = 12;
           if (hospitalStr) {
-             const parsed = JSON.parse(hospitalStr);
-             if (parsed && parsed.id) hospitalId = parsed.id;
+            const parsed = JSON.parse(hospitalStr);
+            if (parsed && (parsed.id || parsed.hospitalId)) hospitalId = parsed.id || parsed.hospitalId;
           }
-          
+
           const activeData = localStorage.getItem('patientDetails');
           let patientId = null;
           if (activeData) {
-             const parsedActive = JSON.parse(activeData);
-             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
-          }
-          
-          if (!patientId || !hospitalId) {
-             setIpdLabLoading(false);
-             return;
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && (parsedActive.patientId || parsedActive.id)) patientId = parsedActive.patientId || parsedActive.id;
           }
 
-          const res = await apiService.get(`${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?page=${ipdLabPage}&size=${ipdLabPageSize}&hospitalId=${hospitalId}&patientId=${patientId}&IPD=true`);
-          
+          if (!patientId || !hospitalId) {
+            setIpdLabLoading(false);
+            return;
+          }
+
+          let url = `${ENDPOINTS.LAB.INVESTIGATIONS_REPORT}?hospitalId=${hospitalId}&patientId=${patientId}&IPD=true&page=${ipdLabPage}&size=${ipdLabPageSize}`;
+          if (debouncedIpdLabSearch.trim()) {
+            url += `&investigationName=${encodeURIComponent(debouncedIpdLabSearch.trim())}`;
+          }
+
+          const res = await apiService.get(url);
+
           if (res && res.response && res.response.content) {
             setIpdLabData(res.response.content);
-            setIpdLabTotalElements(res.response.totalElements || res.response.content.length);
-            setIpdLabTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
+            setIpdLabTotalElements(res.response.totalElements ?? res.response.content.length);
+            setIpdLabTotalPages(res.response.totalPages ?? Math.ceil((res.response.totalElements || res.response.content.length) / ipdLabPageSize));
           } else {
-             setIpdLabData([]);
-             setIpdLabTotalElements(0);
-             setIpdLabTotalPages(0);
+            setIpdLabData([]);
+            setIpdLabTotalElements(0);
+            setIpdLabTotalPages(0);
           }
         } catch (error) {
           console.error("Failed to fetch IPD Lab reports:", error);
@@ -216,7 +320,7 @@ export default function HealthRecords() {
       };
       fetchIpdLabReports();
     }
-  }, [activeTab, ipdLabPage]);
+  }, [activeTab, ipdLabPage, debouncedIpdLabSearch, hospitalTrigger]);
 
   const handleDownloadLabReport = async (record) => {
     if (!record.orderHdId) {
@@ -227,7 +331,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.LAB.PDF_REPORT}?orderHdId=${record.orderHdId}&flag=d`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`${record.investigationName} - ${record.orderDate}`);
@@ -248,7 +352,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.RADIOLOGY.PDF_REPORT}?radOrderDtId=${record.radOrderDtId}&flag=d`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`${record.investigationName} - ${record.orderDate || record.studyDate}`);
@@ -265,12 +369,12 @@ export default function HealthRecords() {
       alert("Missing patient or order details to view study.");
       return;
     }
-    
+
     setDownloadingId(`${record.radOrderDtId}-study`);
     try {
       const orderNoEncoded = encodeURIComponent(record.accessionNo);
       const endpoint = `${ENDPOINTS.RADIOLOGY.PACS_LAUNCH_URL}?uhid=${record.uhidNo}&orderNo=${orderNoEncoded}`;
-      
+
       const res = await apiService.get(endpoint);
       if (res && res.response && res.response.weasisUrl) {
         window.open(res.response.weasisUrl, '_blank');
@@ -289,6 +393,39 @@ export default function HealthRecords() {
     }
   };
 
+  // Fetch PACS Modality List
+  useEffect(() => {
+    if (activeTab === 'radiology-reports') {
+      const fetchModalities = async () => {
+        try {
+          const activeData = localStorage.getItem('patientDetails');
+          let patientId = null;
+          if (activeData) {
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+          }
+          if (!patientId) {
+            setRadModalities([]);
+            return;
+          }
+
+          const res = await apiService.get(`${ENDPOINTS.RADIOLOGY.PACS_MODALITY_LIST}?patientId=${patientId}`);
+          if (res && res.response && Array.isArray(res.response)) {
+            setRadModalities(res.response);
+          } else if (Array.isArray(res)) {
+            setRadModalities(res);
+          } else {
+            setRadModalities([]);
+          }
+        } catch (error) {
+          console.error("Failed to fetch Modality list:", error);
+          setRadModalities([]);
+        }
+      };
+      fetchModalities();
+    }
+  }, [activeTab, hospitalTrigger]);
+
   // 3. Radiology Reports Logic
   useEffect(() => {
     if (activeTab === 'radiology-reports') {
@@ -298,35 +435,46 @@ export default function HealthRecords() {
           const activeData = localStorage.getItem('patientDetails');
           let patientId = null;
           if (activeData) {
-             const parsedActive = JSON.parse(activeData);
-             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
-          }
-          
-          if (!patientId) {
-             setRadLoading(false);
-             return;
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
           }
 
-          const res = await apiService.get(`${ENDPOINTS.RADIOLOGY.PACS_STUDY_LIST}?patientId=${patientId}&page=${radPage}&size=${radPageSize}`);
-          
+          if (!patientId) {
+            setRadLoading(false);
+            return;
+          }
+
+          let url = `${ENDPOINTS.RADIOLOGY.PACS_STUDY_LIST}?patientId=${patientId}&page=${radPage}&size=${radPageSize}`;
+          if (radModalityFilter) {
+            url += `&modality=${radModalityFilter}`;
+          }
+          if (radStatusFilter) {
+            url += `&status=${radStatusFilter}`;
+          }
+
+          const res = await apiService.get(url);
+
           if (res && res.response && res.response.content) {
             setRadData(res.response.content);
             setRadTotalElements(res.response.totalElements || res.response.content.length);
             setRadTotalPages(res.response.totalPages || Math.ceil((res.response.totalElements || res.response.content.length) / 5));
           } else {
-             setRadData([]);
-             setRadTotalElements(0);
-             setRadTotalPages(0);
+            setRadData([]);
+            setRadTotalElements(0);
+            setRadTotalPages(0);
           }
         } catch (error) {
           console.error("Failed to fetch Radiology reports:", error);
+          setRadData([]);
+          setRadTotalElements(0);
+          setRadTotalPages(0);
         } finally {
           setRadLoading(false);
         }
       };
       fetchRadReports();
     }
-  }, [activeTab, radPage]);
+  }, [activeTab, radPage, radModalityFilter, radStatusFilter, hospitalTrigger]);
 
   // 4. IPD Lab Reports is now handled via API state  // 5. Discharge Summaries API Data
   useEffect(() => {
@@ -337,23 +485,23 @@ export default function HealthRecords() {
           const activeData = localStorage.getItem('patientDetails');
           let patientId = null;
           if (activeData) {
-             const parsedActive = JSON.parse(activeData);
-             if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
+            const parsedActive = JSON.parse(activeData);
+            if (parsedActive && parsedActive.patientId) patientId = parsedActive.patientId;
           }
-          
+
           if (!patientId) {
-             setDischargeLoading(false);
-             return;
+            setDischargeLoading(false);
+            return;
           }
 
           const res = await apiService.get(`${ENDPOINTS.IPD.ADMISSION_DISCHARGE_LIST}?page=${dischargePage}&size=${dischargePageSize}&patientId=${patientId}&admissionStatus=2`);
-          
+
           if (res && res.response && res.response.content) {
             setDischargeData(res.response.content);
             setDischargeTotalElements(res.response.totalElements || res.response.content.length);
           } else {
-             setDischargeData([]);
-             setDischargeTotalElements(0);
+            setDischargeData([]);
+            setDischargeTotalElements(0);
           }
         } catch (error) {
           console.error("Failed to fetch Discharge summaries:", error);
@@ -366,33 +514,14 @@ export default function HealthRecords() {
   }, [activeTab, dischargePage]);
 
   // Filtering helpers
-  const filteredOpd = opdData.filter(item => {
-    if (opdSpecialtyFilter === 'All Specialties') return true;
-    return item.specialty.toLowerCase() === opdSpecialtyFilter.toLowerCase();
-  });
+  const filteredOpd = opdData;
 
-  const filteredLab = labData.filter(item => {
-    if (!labSearchQuery.trim()) return true;
-    return item.investigationName && item.investigationName.toLowerCase().includes(labSearchQuery.toLowerCase());
-  });
-
+  const filteredLab = labData;
   const displayedLab = filteredLab;
 
-  const filteredRadiology = radData.filter(item => {
-    const matchModality = radModalityFilter === 'All Modalities' || (item.modality && item.modality.toLowerCase().includes(radModalityFilter.toLowerCase()));
-    
-    let reportStatusStr = 'Drafted';
-    if (item.reportStatus === 'y') reportStatusStr = 'Completed';
-    else if (item.reportStatus === 'n') reportStatusStr = 'Pending';
+  const filteredRadiology = radData;
 
-    const matchStatus = radStatusFilter === 'All' || reportStatusStr.toLowerCase() === radStatusFilter.toLowerCase();
-    return matchModality && matchStatus;
-  });
-
-  const filteredIpdLab = ipdLabData.filter(item => {
-    if (!ipdLabSearchQuery.trim()) return true;
-    return item.investigationName && item.investigationName.toLowerCase().includes(ipdLabSearchQuery.toLowerCase());
-  });
+  const filteredIpdLab = ipdLabData;
 
   // Modal open trigger
   const handleOpenDoc = (type, record) => {
@@ -406,7 +535,7 @@ export default function HealthRecords() {
       const visitId = record.id;
       const endpoint = `${ENDPOINTS.APPOINTMENTS.OPD_CASE_SHEET_REPORT}?visitId=${visitId}&flag=D`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`OPD Slip - ${record.date}`);
@@ -427,7 +556,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.APPOINTMENTS.OPD_PRESCRIPTION_SLIP}?prescriptionId=${record.prescriptionHdId}&flag=D`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`Prescription - ${record.date}`);
@@ -439,33 +568,6 @@ export default function HealthRecords() {
     }
   };
 
-  const handleDownloadNisSlip = async (record) => {
-    if (!record.nisNo) {
-      alert("NIS Number not found for this visit.");
-      return;
-    }
-    setDownloadingId(`${record.id}-nis`);
-    try {
-      const hospitalStr = localStorage.getItem('selectedHospital');
-      let hospitalId = 12;
-      if (hospitalStr) {
-         const parsed = JSON.parse(hospitalStr);
-         if (parsed && parsed.id) hospitalId = parsed.id;
-      }
-      
-      const endpoint = `${ENDPOINTS.APPOINTMENTS.NIS_MEDICINE_REPORT}?hospitalId=${hospitalId}&visitId=${record.id}&flag=D`;
-      const blob = await apiService.getPdf(endpoint);
-      
-      const url = window.URL.createObjectURL(blob);
-      setPdfUrl(url);
-      setPdfName(`NIS Slip - ${record.date}`);
-    } catch (error) {
-      console.error("Failed to fetch NIS Slip PDF", error);
-      alert("Failed to load PDF. Please try again.");
-    } finally {
-      setDownloadingId(null);
-    }
-  };
 
   const handleDownloadDischargeSummary = async (record) => {
     if (!record.inpatientId) {
@@ -476,7 +578,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.IPD.DISCHARGE_SUMMARY_REPORT}?inPatientId=${record.inpatientId}&flag=d`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`Discharge Summary - ${record.admissionNo}`);
@@ -497,7 +599,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.IPD.BILL_SUMMARY_REPORT}?inpatientId=${record.inpatientId}&flag=d`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`Bill Summary - ${record.admissionNo}`);
@@ -518,7 +620,7 @@ export default function HealthRecords() {
     try {
       const endpoint = `${ENDPOINTS.IPD.DETAILED_BILL_REPORT}?inpatientId=${record.inpatientId}&flag=d`;
       const blob = await apiService.getPdf(endpoint);
-      
+
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfName(`Detailed Bill - ${record.admissionNo}`);
@@ -564,11 +666,10 @@ export default function HealthRecords() {
                       key={item.id}
                       type="button"
                       onClick={() => setActiveTab(item.id)}
-                      className={`btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 ${
-                        isActive
+                      className={`btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 ${isActive
                           ? 'bg-primary text-white fw-semibold rounded-2 shadow-sm'
                           : 'text-secondary bg-transparent fw-medium border-0'
-                      }`}
+                        }`}
                       style={{
                         transition: 'all 0.15s ease',
                         fontSize: '0.92rem'
@@ -602,15 +703,18 @@ export default function HealthRecords() {
                     <select
                       className="form-select border-start-0 text-dark"
                       value={opdSpecialtyFilter}
-                      onChange={(e) => setOpdSpecialtyFilter(e.target.value)}
+                      onChange={(e) => {
+                        setOpdSpecialtyFilter(e.target.value);
+                        setOpdPage(0);
+                      }}
                       style={{ fontSize: '0.88rem' }}
                     >
-                      <option value="All Specialties">All Specialties</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="General Medicine">General Medicine</option>
-                      <option value="ENT">ENT</option>
-                      <option value="Dermatology">Dermatology</option>
-                      <option value="Orthopedics">Orthopedics</option>
+                      <option value="">All Specialties</option>
+                      {opdDepartments.map((dept) => (
+                        <option key={dept.departmentId} value={dept.departmentId}>
+                          {dept.departmentName}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -651,22 +755,7 @@ export default function HealthRecords() {
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reason}</td>
                             <td className="py-2.5 px-3 text-nowrap">
                               <div className="d-flex gap-2">
-                                {item.nisNo && (
-                                  <button
-                                    type="button"
-                                    className="btn btn-outline-info btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
-                                    style={{ fontSize: '0.8rem' }}
-                                    onClick={() => handleDownloadNisSlip(item)}
-                                    disabled={downloadingId === `${item.id}-nis`}
-                                  >
-                                    {downloadingId === `${item.id}-nis` ? (
-                                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                    ) : (
-                                      <i className="fa-solid fa-file-invoice"></i>
-                                    )}
-                                    <span>NIS Slip</span>
-                                  </button>
-                                )}
+
                                 <button
                                   type="button"
                                   className="btn btn-outline-secondary btn-sm px-2.5 py-1 rounded-2 d-inline-flex align-items-center gap-1.5 fw-medium"
@@ -714,8 +803,8 @@ export default function HealthRecords() {
                   <nav aria-label="OPD table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
                       <li className={`page-item ${opdPage === 0 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Previous"
                           onClick={() => setOpdPage(Math.max(0, opdPage - 1))}
                           disabled={opdPage === 0}
@@ -729,8 +818,8 @@ export default function HealthRecords() {
                         </button>
                       </li>
                       <li className={`page-item ${(opdPage + 1) * opdPageSize >= opdTotalElements ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Next"
                           onClick={() => setOpdPage(opdPage + 1)}
                           disabled={(opdPage + 1) * opdPageSize >= opdTotalElements}
@@ -803,7 +892,7 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagId !== undefined && item.resultFlagId !== null && Number(item.resultFlagId) !== 1 ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
@@ -838,8 +927,8 @@ export default function HealthRecords() {
                   <nav aria-label="Lab table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
                       <li className={`page-item ${labPage === 0 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Previous"
                           onClick={() => setLabPage(Math.max(0, labPage - 1))}
                           disabled={labPage === 0}
@@ -853,8 +942,8 @@ export default function HealthRecords() {
                         </button>
                       </li>
                       <li className={`page-item ${(labPage + 1) * labPageSize >= labTotalElements ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Next"
                           onClick={() => setLabPage(labPage + 1)}
                           disabled={(labPage + 1) * labPageSize >= labTotalElements}
@@ -882,15 +971,18 @@ export default function HealthRecords() {
                     <select
                       className="form-select form-select-sm text-dark"
                       value={radModalityFilter}
-                      onChange={(e) => setRadModalityFilter(e.target.value)}
+                      onChange={(e) => {
+                        setRadModalityFilter(e.target.value);
+                        setRadPage(0);
+                      }}
                       style={{ fontSize: '0.88rem' }}
                     >
-                      <option value="All Modalities">All Modalities</option>
-                      <option value="X-Ray">X-Ray</option>
-                      <option value="Ultrasound">Ultrasound</option>
-                      <option value="MRI">MRI</option>
-                      <option value="CT">CT</option>
-                      <option value="Mammography">Mammography</option>
+                      <option value="">All Modalities</option>
+                      {radModalities.map((item) => (
+                        <option key={item.modalityId} value={item.modalityId}>
+                          {item.modalityName}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div style={{ minWidth: '180px' }}>
@@ -898,13 +990,15 @@ export default function HealthRecords() {
                     <select
                       className="form-select form-select-sm text-dark"
                       value={radStatusFilter}
-                      onChange={(e) => setRadStatusFilter(e.target.value)}
+                      onChange={(e) => {
+                        setRadStatusFilter(e.target.value);
+                        setRadPage(0);
+                      }}
                       style={{ fontSize: '0.88rem' }}
                     >
-                      <option value="All">All</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Drafted">Drafted</option>
+                      <option value="">All</option>
+                      <option value="y">Complete</option>
+                      <option value="n">Pending</option>
                     </select>
                   </div>
                 </div>
@@ -945,11 +1039,11 @@ export default function HealthRecords() {
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.modality}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
-                              {item.orderDate || '-'} <br/>
+                              {item.orderDate || '-'} <br />
                               <small className="text-muted">{item.orderTime && item.orderTime.includes('T') ? item.orderTime.split('T')[1].substring(0, 5) : item.orderTime}</small>
                             </td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
-                              {item.studyDate || '-'} <br/>
+                              {item.studyDate || '-'} <br />
                               <small className="text-muted">{item.studyTime && item.studyTime.includes('T') ? item.studyTime.split('T')[1].substring(0, 5) : item.studyTime}</small>
                             </td>
                             <td className="py-2.5 px-3 text-nowrap">
@@ -1020,8 +1114,8 @@ export default function HealthRecords() {
                   <nav aria-label="Radiology table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
                       <li className={`page-item ${radPage === 0 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Previous"
                           onClick={() => setRadPage(Math.max(0, radPage - 1))}
                           disabled={radPage === 0}
@@ -1035,8 +1129,8 @@ export default function HealthRecords() {
                         </button>
                       </li>
                       <li className={`page-item ${(radPage + 1) * radPageSize >= radTotalElements ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Next"
                           onClick={() => setRadPage(radPage + 1)}
                           disabled={(radPage + 1) * radPageSize >= radTotalElements}
@@ -1109,7 +1203,7 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagId !== undefined && item.resultFlagId !== null && Number(item.resultFlagId) !== 1 ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
@@ -1144,8 +1238,8 @@ export default function HealthRecords() {
                   <nav aria-label="IPD Lab table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
                       <li className={`page-item ${ipdLabPage === 0 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Previous"
                           onClick={() => setIpdLabPage(Math.max(0, ipdLabPage - 1))}
                           disabled={ipdLabPage === 0}
@@ -1159,8 +1253,8 @@ export default function HealthRecords() {
                         </button>
                       </li>
                       <li className={`page-item ${(ipdLabPage + 1) * ipdLabPageSize >= ipdLabTotalElements ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Next"
                           onClick={() => setIpdLabPage(ipdLabPage + 1)}
                           disabled={(ipdLabPage + 1) * ipdLabPageSize >= ipdLabTotalElements}
@@ -1213,10 +1307,10 @@ export default function HealthRecords() {
                         dischargeData.map((item) => {
                           let admDate = item.admissionDateTime || '-';
                           if (admDate.includes('T')) admDate = admDate.replace('T', ' ').substring(0, 16);
-                          
+
                           let disDate = item.dischargeDate || '-';
                           if (disDate.includes('T')) disDate = disDate.replace('T', ' ').substring(0, 16);
-                          
+
                           return (
                             <tr key={item.inpatientId || Math.random()}>
                               <td className="  " style={{ fontSize: '0.88rem' }}>{item.admissionNo}</td>
@@ -1286,8 +1380,8 @@ export default function HealthRecords() {
                   <nav aria-label="Discharge summary table pagination">
                     <ul className="pagination pagination-sm mb-0 align-items-center gap-1">
                       <li className={`page-item ${dischargePage === 0 ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Previous"
                           onClick={() => setDischargePage(Math.max(0, dischargePage - 1))}
                           disabled={dischargePage === 0}
@@ -1301,8 +1395,8 @@ export default function HealthRecords() {
                         </button>
                       </li>
                       <li className={`page-item ${(dischargePage + 1) * dischargePageSize >= dischargeTotalElements ? 'disabled' : ''}`}>
-                        <button 
-                          className="page-link border rounded text-secondary py-1 px-2" 
+                        <button
+                          className="page-link border rounded text-secondary py-1 px-2"
                           aria-label="Next"
                           onClick={() => setDischargePage(dischargePage + 1)}
                           disabled={(dischargePage + 1) * dischargePageSize >= dischargeTotalElements}
@@ -1513,7 +1607,7 @@ export default function HealthRecords() {
                           ) : (
                             <tr className="border-bottom border-light-subtle">
                               <td className="py-2 px-3 fw-medium text-dark">{selectedDoc.record.investigation}</td>
-                              <td className="py-2 px-3 fw-bold text-dark">{selectedDoc.record.result}</td>
+                              <td className={`py-2 px-3 fw-bold ${selectedDoc.record.resultFlagId !== undefined && selectedDoc.record.resultFlagId !== null && Number(selectedDoc.record.resultFlagId) !== 1 ? 'text-danger' : 'text-dark'}`}>{selectedDoc.record.result}</td>
                               <td className="py-2 px-3 text-secondary">{selectedDoc.record.unit}</td>
                               <td className="py-2 px-3 text-secondary">{selectedDoc.record.range}</td>
                               <td className="py-2 px-3">
@@ -1772,7 +1866,7 @@ export default function HealthRecords() {
           </div>
         </div>
       )}
-      
+
       {/* PDF Viewer */}
       <PdfViewer
         pdfUrl={pdfUrl}
