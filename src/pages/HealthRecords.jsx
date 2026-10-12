@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
+import { LAB_RESULT_FLAG } from '../constants/labConstants';
 import PdfViewer from '../components/PdfViewer';
 
 export default function HealthRecords() {
@@ -667,8 +668,8 @@ export default function HealthRecords() {
                       type="button"
                       onClick={() => setActiveTab(item.id)}
                       className={`btn d-flex align-items-center w-100 text-start py-2.5 px-3 rounded-2 ${isActive
-                          ? 'bg-primary text-white fw-semibold rounded-2 shadow-sm'
-                          : 'text-secondary bg-transparent fw-medium border-0'
+                        ? 'bg-primary text-white fw-semibold rounded-2 shadow-sm'
+                        : 'text-secondary bg-transparent fw-medium border-0'
                         }`}
                       style={{
                         transition: 'all 0.15s ease',
@@ -752,7 +753,7 @@ export default function HealthRecords() {
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.specialty}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.reason}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.diagnosis}</td>
                             <td className="py-2.5 px-3 text-nowrap">
                               <div className="d-flex gap-2">
 
@@ -892,7 +893,7 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagId !== undefined && item.resultFlagId !== null && Number(item.resultFlagId) !== 1 ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
@@ -1203,7 +1204,7 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagId !== undefined && item.resultFlagId !== null && Number(item.resultFlagId) !== 1 ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
@@ -1607,7 +1608,7 @@ export default function HealthRecords() {
                           ) : (
                             <tr className="border-bottom border-light-subtle">
                               <td className="py-2 px-3 fw-medium text-dark">{selectedDoc.record.investigation}</td>
-                              <td className={`py-2 px-3 fw-bold ${selectedDoc.record.resultFlagId !== undefined && selectedDoc.record.resultFlagId !== null && Number(selectedDoc.record.resultFlagId) !== 1 ? 'text-danger' : 'text-dark'}`}>{selectedDoc.record.result}</td>
+                              <td className={`py-2 px-3 fw-bold ${selectedDoc.record.resultFlagName && selectedDoc.record.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger' : 'text-dark'}`}>{selectedDoc.record.result}</td>
                               <td className="py-2 px-3 text-secondary">{selectedDoc.record.unit}</td>
                               <td className="py-2 px-3 text-secondary">{selectedDoc.record.range}</td>
                               <td className="py-2 px-3">
