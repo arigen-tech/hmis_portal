@@ -195,7 +195,8 @@ export default function HealthRecords() {
                 date: date,
                 doctor: item.doctorName || 'Not Assigned',
                 specialty: item.specialty || 'General',
-                reason: item.departmentName || item.specialty || 'Consultation',
+                reason: item.diagnosis || item.departmentName || item.specialty || 'Consultation',
+                diagnosis: item.diagnosis || '-',
                 vitals: { bp: 'N/A', pulse: 'N/A', temp: 'N/A', spo2: 'N/A' },
                 medicines: [],
                 instructions: 'N/A',
@@ -753,7 +754,7 @@ export default function HealthRecords() {
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.specialty}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.diagnosis}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }} title={item.diagnosis || '-'}>{item.diagnosis || '-'}</td>
                             <td className="py-2.5 px-3 text-nowrap">
                               <div className="d-flex gap-2">
 

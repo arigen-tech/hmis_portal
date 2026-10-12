@@ -75,22 +75,7 @@ export function useAppointments({
       
       setIsLoading(true);
       try {
-        if (activeMenu === APPOINTMENT_TYPE.OPD && activeSubTab === 'completed') {
-          const queryParams = new URLSearchParams({
-            patientId: parsedPatient.patientId,
-            page: page,
-            size: 5
-          });
-          
-          const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.OPD_REPORTS_LIST}?${queryParams.toString()}`);
-          
-          if (!ignore && response.status === 200 && response.response && response.response.content) {
-            const mapped = response.response.content.map(app => mapOpdCompletedItem(app, parsedHospital));
-            setPastAppointments(mapped);
-            setTotalPages(response.response.totalPages || 0);
-            setTotalElements(response.response.totalElements || 0);
-          }
-        } else if (activeSubTab === 'cancelled') {
+        if (activeSubTab === 'cancelled') {
           const queryParams = new URLSearchParams({
             hospitalId: parsedHospital.id,
             patientId: parsedPatient.patientId,
@@ -128,13 +113,15 @@ export function useAppointments({
           
           if (activeSubTab === 'upcoming') {
             paramsObj.includeAllHistory = historyFilter === 'all_history' ? 'true' : 'false';
+          } else if (activeSubTab === 'completed') {
+            paramsObj.includeAllHistory = 'true';
           }
 
           const queryParams = new URLSearchParams(paramsObj);
           
           if (activeSubTab === 'upcoming') {
             queryParams.append('visitStatus', API_VISIT_STATUS.NO);
-          } else if (activeSubTab === 'completed' && activeMenu !== APPOINTMENT_TYPE.OPD) {
+          } else if (activeSubTab === 'completed') {
             queryParams.append('visitStatus', API_VISIT_STATUS.YES);
           }
           
