@@ -17,6 +17,7 @@ export default function Navbar() {
   const [hospitals, setHospitals] = useState([]);
   const [activeHospital, setActiveHospital] = useState(null);
   const [newMemberForm, setNewMemberForm] = useState({
+    hospitalId: '',
     firstName: '',
     middleName: '',
     lastName: '',
@@ -156,6 +157,9 @@ export default function Navbar() {
   // Fetch master data when family modal opens
   useEffect(() => {
     if (showFamilyModal) {
+      if (!newMemberForm.hospitalId && activeHospital?.id) {
+        setNewMemberForm(prev => ({ ...prev, hospitalId: activeHospital.id }));
+      }
       const fetchMasterData = async () => {
         try {
           if (masterGenders.length === 0) {
@@ -243,6 +247,7 @@ export default function Navbar() {
     const patientCity = selectedDistrict ? selectedDistrict.districtName : '';
 
     const payload = {
+      hospitalId: parseInt(newMemberForm.hospitalId) || activeHospital?.id || 0,
       patientFn: newMemberForm.firstName,
       patientMn: newMemberForm.middleName,
       patientLn: newMemberForm.lastName,
@@ -315,6 +320,7 @@ export default function Navbar() {
 
         // Reset form
         setNewMemberForm({
+          hospitalId: activeHospital?.id || '',
           firstName: '', middleName: '', lastName: '', mobileNo: '', altMobileNo: '',
           relation: '', email: '', gender: '', maritalStatus: '', bloodGroup: '',
           dob: '', patientAge: '', emergencyContactName: '', emergencyContactNo: '',
@@ -926,6 +932,21 @@ export default function Navbar() {
                 </h6>
                 <form onSubmit={handleAddFamilyMember}>
                   <div className="row g-2">
+                    <div className="col-md-4">
+                      <label className="form-label small fw-bold text-muted">Hospital</label>
+                      <select 
+                        className="form-select form-select-sm" 
+                        name="hospitalId" 
+                        value={newMemberForm.hospitalId} 
+                        onChange={handleMemberChange} 
+                        required
+                      >
+                        <option value="">Select Hospital</option>
+                        {hospitals.map(h => (
+                          <option key={h.id} value={h.id}>{h.hospitalName}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="col-md-4">
                       <label className="form-label small fw-bold text-muted">First Name</label>
                       <input type="text" className="form-control form-control-sm" name="firstName" value={newMemberForm.firstName} onChange={handleMemberChange} required />
