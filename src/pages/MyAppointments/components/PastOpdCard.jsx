@@ -45,7 +45,7 @@ export function PastOpdCard({
               <th>Doctor</th>
               <th>Specialty</th>
               <th>Hospital / Location</th>
-              <th>Token No.</th>
+              {activeSubTab !== 'completed' && <th>Token No.</th>}
               <th>Payment Status</th>
               {activeSubTab !== 'completed' && <th>Status</th>}
               <th>Action</th>
@@ -54,7 +54,7 @@ export function PastOpdCard({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={activeSubTab === 'completed' ? 7 : 8} className="text-center py-5">
+                <td colSpan={activeSubTab === 'completed' ? 6 : 8} className="text-center py-5">
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
@@ -62,7 +62,7 @@ export function PastOpdCard({
               </tr>
             ) : pastAppointments?.length === 0 ? (
               <tr>
-                <td colSpan={activeSubTab === 'completed' ? 7 : 8} className="text-center py-5 text-muted">
+                <td colSpan={activeSubTab === 'completed' ? 6 : 8} className="text-center py-5 text-muted">
                   No {activeSubTab} appointments found.
                 </td>
               </tr>
@@ -92,13 +92,15 @@ export function PastOpdCard({
                       <span className="table-room-no">{app.room}</span>
                     </div>
                   </td>
-                  <td>
-                    {app.tokenNo && app.tokenNo !== '-' ? (
-                      <span className="table-token-pill">{app.tokenNo}</span>
-                    ) : (
-                      <span className="text-muted">-</span>
-                    )}
-                  </td>
+                  {activeSubTab !== 'completed' && (
+                    <td>
+                      {app.tokenNo && app.tokenNo !== '-' ? (
+                        <span className="table-token-pill">{app.tokenNo}</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <div className="table-payment-cell">
                       {app.paymentStatus === 'Paid' ? (

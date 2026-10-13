@@ -488,7 +488,7 @@ export default function MyAppointments() {
                   />
                 )}
 
-                {/* Section 2: Past Appointments (Token No. preserved) */}
+                {/* Section 2: Past Appointments */}
                 {activeSubTab !== 'upcoming' && (
                   <PastOpdCard
                     pastAppointments={pastAppointments}
