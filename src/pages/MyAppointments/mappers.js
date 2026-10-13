@@ -169,7 +169,8 @@ export const mapHistoryItem = (app, parsedHospital) => {
     amount: app.billedAmount || 0,
     status: mappedStatus,
     type: isLab ? APPOINTMENT_TYPE.LAB : (isRad ? APPOINTMENT_TYPE.RADIOLOGY : APPOINTMENT_TYPE.OPD),
-    billHdId: app.billingHeaderId,
+    billHdId: app.billingHeaderId || app.billHdId,
+    prescriptionHdId: app.prescriptionHdId || app.prescriptionHeaderId || null,
     paymentGatewayModeName: app.paymentGatewayModeName
   };
 };

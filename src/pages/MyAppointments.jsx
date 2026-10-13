@@ -488,7 +488,7 @@ export default function MyAppointments() {
                   />
                 )}
 
-                {/* Section 2: Past Appointments (Token No. preserved) */}
+                {/* Section 2: Past Appointments */}
                 {activeSubTab !== 'upcoming' && (
                   <PastOpdCard
                     pastAppointments={pastAppointments}
@@ -520,7 +520,6 @@ export default function MyAppointments() {
                   activeSubTab={activeSubTab}
                   setActiveSubTab={setActiveSubTab}
                   upcomingCount={pendingCounts?.rad ?? (activeSubTab === 'upcoming' ? totalElements : 0)}
-                  showCompleted={false}
                 />
 
                 {/* Primary Card: Radiology Card (Lavender Banner) */}
@@ -541,7 +540,6 @@ export default function MyAppointments() {
                   activeSubTab={activeSubTab}
                   setActiveSubTab={setActiveSubTab}
                   upcomingCount={pendingCounts?.lab ?? (activeSubTab === 'upcoming' ? totalElements : 0)}
-                  showCompleted={false}
                 />
 
                 {/* Primary Card: Lab Card (Mint Green Banner) */}

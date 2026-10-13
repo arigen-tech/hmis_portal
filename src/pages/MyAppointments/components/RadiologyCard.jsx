@@ -67,14 +67,14 @@ export default function RadiologyCard({
               <th>Test / Procedure</th>
               <th>Hospital / Location</th>
               <th>Payment Status</th>
-              <th>Status</th>
+              {activeSubTab !== 'completed' && <th>Status</th>}
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="6" className="text-center py-5">
+                <td colSpan={activeSubTab === 'completed' ? 5 : 6} className="text-center py-5">
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
@@ -82,7 +82,7 @@ export default function RadiologyCard({
               </tr>
             ) : radiologyAppointments?.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center py-5 text-muted">
+                <td colSpan={activeSubTab === 'completed' ? 5 : 6} className="text-center py-5 text-muted">
                   No radiology appointments found.
                 </td>
               </tr>
@@ -141,15 +141,17 @@ export default function RadiologyCard({
                   </td>
 
                   {/* Status */}
-                  <td>
-                    {app.status === 'Completed' ? (
-                      <span className="status-pill status-pill-completed">Completed</span>
-                    ) : app.status === 'Cancelled' ? (
-                      <span className="status-pill status-pill-cancelled">Cancelled</span>
-                    ) : (
-                      <span className="status-pill status-pill-scheduled">Scheduled</span>
-                    )}
-                  </td>
+                  {activeSubTab !== 'completed' && (
+                    <td>
+                      {app.status === 'Completed' ? (
+                        <span className="status-pill status-pill-completed">Completed</span>
+                      ) : app.status === 'Cancelled' ? (
+                        <span className="status-pill status-pill-cancelled">Cancelled</span>
+                      ) : (
+                        <span className="status-pill status-pill-scheduled">Scheduled</span>
+                      )}
+                    </td>
+                  )}
 
                   {/* Actions */}
                   <td>
@@ -225,36 +227,19 @@ export default function RadiologyCard({
                         </>
                       )}
 
-                      {app.status === 'Completed' && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-action-outline"
-                            onClick={() => handleOpenReport(app)}
-                          >
-                            View Report
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-action-outline"
-                            onClick={() => handleOpenInvoice(app)}
-                            disabled={loadingPdfId === `${app.id}_invoice`}
-                          >
-                            {loadingPdfId === `${app.id}_invoice` ? (
-                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                            ) : (
-                              'View Invoice'
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-action-disabled"
-                            disabled
-                            title="Completed tests cannot be cancelled"
-                          >
-                            Cancel
-                          </button>
-                        </>
+                      {(app.status === 'Completed' || activeSubTab === 'completed') && (
+                        <button
+                          type="button"
+                          className="btn-action-outline"
+                          onClick={() => handleOpenInvoice(app)}
+                          disabled={loadingPdfId === `${app.id}_invoice`}
+                        >
+                          {loadingPdfId === `${app.id}_invoice` ? (
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          ) : (
+                            'View Invoice'
+                          )}
+                        </button>
                       )}
 
                       {app.status === 'Cancelled' && (

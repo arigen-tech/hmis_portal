@@ -45,16 +45,16 @@ export function PastOpdCard({
               <th>Doctor</th>
               <th>Specialty</th>
               <th>Hospital / Location</th>
-              <th>Token No.</th>
+              {activeSubTab !== 'completed' && <th>Token No.</th>}
               <th>Payment Status</th>
-              <th>Status</th>
+              {activeSubTab !== 'completed' && <th>Status</th>}
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="8" className="text-center py-5">
+                <td colSpan={activeSubTab === 'completed' ? 6 : 8} className="text-center py-5">
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
@@ -62,7 +62,7 @@ export function PastOpdCard({
               </tr>
             ) : pastAppointments?.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center py-5 text-muted">
+                <td colSpan={activeSubTab === 'completed' ? 6 : 8} className="text-center py-5 text-muted">
                   No {activeSubTab} appointments found.
                 </td>
               </tr>
@@ -92,13 +92,15 @@ export function PastOpdCard({
                       <span className="table-room-no">{app.room}</span>
                     </div>
                   </td>
-                  <td>
-                    {app.tokenNo && app.tokenNo !== '-' ? (
-                      <span className="table-token-pill">{app.tokenNo}</span>
-                    ) : (
-                      <span className="text-muted">-</span>
-                    )}
-                  </td>
+                  {activeSubTab !== 'completed' && (
+                    <td>
+                      {app.tokenNo && app.tokenNo !== '-' ? (
+                        <span className="table-token-pill">{app.tokenNo}</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <div className="table-payment-cell">
                       {app.paymentStatus === 'Paid' ? (
@@ -121,15 +123,17 @@ export function PastOpdCard({
                       <span className="payment-amount">₹{app.amount.toLocaleString ? app.amount.toLocaleString() : app.amount}</span>
                     </div>
                   </td>
+                  {activeSubTab !== 'completed' && (
+                    <td>
+                      {app.status === 'completed' ? (
+                        <span className="status-pill status-pill-completed">Completed</span>
+                      ) : (
+                        <span className="status-pill status-pill-cancelled">Cancelled</span>
+                      )}
+                    </td>
+                  )}
                   <td>
-                    {app.status === 'completed' ? (
-                      <span className="status-pill status-pill-completed">Completed</span>
-                    ) : (
-                      <span className="status-pill status-pill-cancelled">Cancelled</span>
-                    )}
-                  </td>
-                  <td>
-                    {app.status === 'completed' ? (
+                    {activeSubTab === 'completed' ? (
                       <div className="d-flex gap-2">
                         <button
                           type="button"
@@ -146,15 +150,29 @@ export function PastOpdCard({
                         <button
                           type="button"
                           className="btn-action-outline"
-                          onClick={() => app.prescriptionHdId ? handleOpenPrescriptionSlip(app) : handleOpenInvoice(app)}
-                          disabled={loadingPdfId === `${app.id}_prescription` || loadingPdfId === `${app.id}_invoice`}
+                          onClick={() => handleOpenInvoice(app)}
+                          disabled={loadingPdfId === `${app.id}_invoice`}
                         >
-                          {(loadingPdfId === `${app.id}_prescription` || loadingPdfId === `${app.id}_invoice`) ? (
+                          {loadingPdfId === `${app.id}_invoice` ? (
                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                           ) : (
-                            app.prescriptionHdId ? 'Prescription Slip' : 'View Invoice'
+                            'View Invoice'
                           )}
                         </button>
+                        {app.prescriptionHdId && (
+                          <button
+                            type="button"
+                            className="btn-action-outline"
+                            onClick={() => handleOpenPrescriptionSlip(app)}
+                            disabled={loadingPdfId === `${app.id}_prescription`}
+                          >
+                            {loadingPdfId === `${app.id}_prescription` ? (
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : (
+                              'Prescription Slip'
+                            )}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <button
