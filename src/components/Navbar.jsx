@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
 
@@ -88,6 +88,54 @@ export default function Navbar() {
   const [toastMessage, setToastMessage] = useState('');
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const isRadiologyActive = location.pathname === '/appointments' && location.search.includes('tab=radiology');
+  const isAppointmentsActive = location.pathname === '/appointments' && !location.search.includes('tab=radiology');
+
+  const hospitalRef = useRef(null);
+  const notificationRef = useRef(null);
+  const profileRef = useRef(null);
+
+  // Close dropdown menus when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (hospitalRef.current && !hospitalRef.current.contains(event.target)) {
+        setShowHospitalMenu(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotificationMenu(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+        setShowSwitchSubmenu(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowHospitalMenu(false);
+        setShowNotificationMenu(false);
+        setShowProfileMenu(false);
+        setShowSwitchSubmenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Close dropdowns on route changes
+  useEffect(() => {
+    setIsNavCollapsed(true);
+    setShowHospitalMenu(false);
+    setShowNotificationMenu(false);
+    setShowProfileMenu(false);
+    setShowSwitchSubmenu(false);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const activeData = localStorage.getItem('patientDetails');
@@ -443,7 +491,7 @@ export default function Navbar() {
             <ul className="navbar-nav mx-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link nav-ari-link ${isActive ? 'active' : ''}`} 
                   to="/dashboard"
                   end
                 >
@@ -452,7 +500,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'nav-link-pill-active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link nav-ari-link ${isActive ? 'active' : ''}`} 
                   to="/book-appointment"
                 >
                   Book Appointment
@@ -460,7 +508,7 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={`nav-link nav-ari-link ${isRadiologyActive ? 'active' : ''}`} 
                   to="/appointments?tab=radiology"
                 >
                   <i className="fas fa-x-ray me-1" style={{ color: '#7C3AED' }}></i>
@@ -469,18 +517,16 @@ export default function Navbar() {
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={`nav-link nav-ari-link ${isAppointmentsActive ? 'active' : ''}`} 
                   to="/appointments"
-                  style={({ isActive }) => isActive ? { borderBottom: '3px solid #1E60F4', color: '#1E60F4' } : {}}
                 >
                   My Appointments
                 </NavLink>
               </li>
               <li className="nav-item">
                 <NavLink 
-                  className={({ isActive }) => `nav-link px-2 py-2 fw-semibold ${isActive ? 'text-primary fw-bold active' : 'text-secondary'}`} 
+                  className={({ isActive }) => `nav-link nav-ari-link ${isActive ? 'active' : ''}`} 
                   to="/health-records"
-                  style={({ isActive }) => isActive ? { backgroundColor: '#EBF3FF', borderRadius: '8px 8px 0 0', borderBottom: '3px solid #1E60F4', color: '#1E60F4' } : {}}
                 >
                   Health Records
                 </NavLink>
@@ -490,10 +536,10 @@ export default function Navbar() {
             {/* Right side: Notifications & User Profile */}
             <div className="d-flex align-items-center gap-3">
               {/* Hospital Dropdown */}
-              <div className="position-relative">
+              <div className="position-relative" ref={hospitalRef}>
                 <div 
-                  className="d-flex align-items-center gap-2 p-1 pe-2 rounded-pill cursor-pointer border"
-                  style={{ background: '#f8f9fa', cursor: 'pointer', transition: 'var(--transition)' }}
+                  className="d-flex align-items-center gap-2 p-1 pe-2 rounded-pill cursor-pointer border nav-interactive-pill"
+                  style={{ background: '#f8f9fa', cursor: 'pointer' }}
                   onClick={() => {
                     setShowHospitalMenu(!showHospitalMenu);
                     setShowProfileMenu(false);
@@ -558,10 +604,10 @@ export default function Navbar() {
               </div>
 
               {/* Notification Bell */}
-              <div className="position-relative">
+              <div className="position-relative" ref={notificationRef}>
                 <button 
                   type="button" 
-                  className="btn btn-light rounded-circle p-2 position-relative d-flex align-items-center justify-content-center"
+                  className="btn btn-light rounded-circle p-2 position-relative d-flex align-items-center justify-content-center nav-interactive-pill"
                   style={{ width: '40px', height: '40px', background: 'var(--light-color)', border: '1px solid var(--border-color)' }}
                   onClick={() => {
                     setShowNotificationMenu(!showNotificationMenu);
@@ -614,10 +660,10 @@ export default function Navbar() {
                 )}
               </div>
 
-              <div className="position-relative">
+              <div className="position-relative" ref={profileRef}>
                 <div 
-                  className="d-flex align-items-center gap-2 p-1 pe-2 rounded-pill cursor-pointer border"
-                  style={{ background: '#FFFFFF', cursor: 'pointer', transition: 'var(--transition)' }}
+                  className="d-flex align-items-center gap-2 p-1 pe-2 rounded-pill cursor-pointer border nav-interactive-pill"
+                  style={{ background: '#FFFFFF', cursor: 'pointer' }}
                   onClick={() => {
                     setShowProfileMenu(!showProfileMenu);
                     setShowNotificationMenu(false);

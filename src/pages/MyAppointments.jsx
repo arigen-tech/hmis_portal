@@ -31,9 +31,10 @@ export default function MyAppointments() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset pagination when tabs change
+  // Reset pagination and scroll when tabs change
   useEffect(() => {
     setCurrentPage(1);
+    window.scrollTo(0, 0);
   }, [activeMenu, activeSubTab, diagnosticTab, historyFilter]);
 
   // Refund Details State
@@ -108,6 +109,7 @@ export default function MyAppointments() {
   // URL Parameter Listener
   useEffect(() => {
     const tab = searchParams.get('tab') || searchParams.get('menu');
+    const subtab = searchParams.get('subtab') || searchParams.get('status');
     const action = searchParams.get('action');
 
     if (tab === 'radiology') {
@@ -119,6 +121,16 @@ export default function MyAppointments() {
     } else if (tab === 'all' || tab === 'diagnostics') {
       setActiveMenu('diagnostics');
       setDiagnosticTab('all');
+    } else if (tab === 'opd') {
+      setActiveMenu(APPOINTMENT_TYPE.OPD);
+    }
+
+    if (subtab === 'completed' || subtab === 'complete' || subtab === 'past') {
+      setActiveSubTab('completed');
+    } else if (subtab === 'upcoming' || subtab === 'pending') {
+      setActiveSubTab('upcoming');
+    } else if (subtab === 'cancelled') {
+      setActiveSubTab('cancelled');
     }
 
     if (action === 'book-radiology') {
