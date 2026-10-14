@@ -9,10 +9,12 @@ import BookLabTest from './pages/BookLabTest';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
+import ScrollToTop from './components/ScrollToTop';
 
 export default function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Public Routes (Only accessible when logged out) */}
         <Route element={<PublicRoute />}>
