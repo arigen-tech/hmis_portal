@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
 import AlertNotification from '../components/AlertNotification';
 import { loadRazorpayScript } from '../utils/loadRazorpay';
+import { parseTimeToMinutes } from '../utils/dateUtils';
 
 export default function BookAppointment({ defaultView = 'listing' }) {
   const navigate = useNavigate();
@@ -96,7 +97,13 @@ export default function BookAppointment({ defaultView = 'listing' }) {
         try {
           const res = await apiService.get(ENDPOINTS.MASTER.GET_OPD_SESSIONS);
           if (res && res.status === 200 && res.response) {
-            setOpdSessionsList(res.response);
+            const sortedSessions = [...res.response].sort((a, b) => {
+              return parseTimeToMinutes(a.fromTime) - parseTimeToMinutes(b.fromTime);
+            });
+            setOpdSessionsList(sortedSessions);
+            if (sortedSessions.length > 0) {
+              setSelectedSessionId(sortedSessions[0].id);
+            }
           }
         } catch (err) {
           console.error("Failed to fetch OPD sessions:", err);
@@ -106,74 +113,87 @@ export default function BookAppointment({ defaultView = 'listing' }) {
     }
   }, [viewMode]);
 
-  useEffect(() => {
-    const fetchDoctorsAndSpecialties = async () => {
-      setIsSearching(true);
-      setHasSearched(true);
-      try {
-        const hospitalStr = localStorage.getItem('selectedHospital');
-        let hospitalId = 12;
-        if (hospitalStr) {
-          try {
-            const parsed = JSON.parse(hospitalStr);
-            if (parsed && parsed.id) hospitalId = parsed.id;
-          } catch(e) {}
-        }
-
-        const url = `${ENDPOINTS.APPOINTMENTS.SEARCH_DOCTOR}?search=${encodeURIComponent(searchQuery)}&hospitalId=${hospitalId}`;
-        const res = await apiService.get(url);
-        
-        if (res && res.status === 200 && res.response && res.response.length > 0) {
-          const responseData = res.response[0];
-          const doctorsData = responseData.doctorResponseList || [];
-          const specialitiesData = responseData.specialitiesResponseList || [];
-          
-          const mappedDoctors = doctorsData.map((doc) => ({
-            id: `doc-${doc.doctorId}`,
-            name: doc.doctorName,
-            specialty: 'Specialist',
-            degrees: '', 
-            location: doc.hospitalName,
-            rating: 4.5,
-            fee: doc.consultancyFee || 0,
-            avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
-            gender: 'unknown',
-            experience: doc.yearOfExperience || 'N/A',
-            about: '',
-            expertise: [],
-            education: [],
-            workExperience: [],
-            memberships: [],
-            awardsAndDistinctions: [],
-            languages: ['English', 'Hindi'],
-            sessions: doc.sessionResponseLists || []
-          }));
-          
-          setDisplayedDoctors(mappedDoctors);
-          setSpecialtiesList(specialitiesData);
-        } else {
-          setDisplayedDoctors([]);
-          setSpecialtiesList([]);
-        }
-      } catch (err) {
-        console.error("Search failed:", err);
-        setDisplayedDoctors([]);
-        setSpecialtiesList([]);
-      } finally {
-        setIsSearching(false);
+  const fetchDoctorsAndSpecialties = async (query = searchQuery) => {
+    setIsSearching(true);
+    setHasSearched(true);
+    try {
+      const hospitalStr = localStorage.getItem('selectedHospital');
+      let hospitalId = 12;
+      if (hospitalStr) {
+        try {
+          const parsed = JSON.parse(hospitalStr);
+          if (parsed && parsed.id) hospitalId = parsed.id;
+        } catch(e) {}
       }
-    };
 
+      const url = `${ENDPOINTS.APPOINTMENTS.SEARCH_DOCTOR}?search=${encodeURIComponent(query)}&hospitalId=${hospitalId}`;
+      const res = await apiService.get(url);
+      
+      if (res && res.status === 200 && res.response && res.response.length > 0) {
+        const responseData = res.response[0];
+        const doctorsData = responseData.doctorResponseList || [];
+        const specialitiesData = responseData.specialitiesResponseList || [];
+        
+        const mappedDoctors = doctorsData.map((doc) => ({
+          id: `doc-${doc.doctorId}`,
+          name: doc.doctorName,
+          specialty: 'Specialist',
+          degrees: '', 
+          location: doc.hospitalName,
+          rating: 4.5,
+          fee: doc.consultancyFee || 0,
+          avatar: 'https://i.postimg.cc/k47Z6t44/default-doctor.png',
+          gender: 'unknown',
+          experience: doc.yearOfExperience || 'N/A',
+          about: '',
+          expertise: [],
+          education: [],
+          workExperience: [],
+          memberships: [],
+          awardsAndDistinctions: [],
+          languages: ['English', 'Hindi'],
+          sessions: doc.sessionResponseLists || []
+        }));
+        
+        setDisplayedDoctors(mappedDoctors);
+        if (specialitiesData.length > 0) {
+          setSpecialtiesList(specialitiesData);
+        }
+      } else {
+        setDisplayedDoctors([]);
+      }
+    } catch (err) {
+      console.error("Search failed:", err);
+      setDisplayedDoctors([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
     const timer = setTimeout(() => {
-      fetchDoctorsAndSpecialties();
+      if (!selectedSpecialty) {
+        fetchDoctorsAndSpecialties(searchQuery);
+      }
     }, 500);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const isFirstSpecialtyRender = useRef(true);
+
   useEffect(() => {
+    if (isFirstSpecialtyRender.current) {
+      isFirstSpecialtyRender.current = false;
+      return;
+    }
+
+    if (!selectedSpecialty) {
+      fetchDoctorsAndSpecialties(searchQuery);
+      return;
+    }
+
     const fetchDoctorsBySpecialty = async () => {
-      if (!selectedSpecialty) return;
       setIsSearching(true);
       setHasSearched(true);
       try {
@@ -219,6 +239,14 @@ export default function BookAppointment({ defaultView = 'listing' }) {
 
     fetchDoctorsBySpecialty();
   }, [selectedSpecialty]);
+
+  const handleSpecialtyChange = (specialtyId) => {
+    setSelectedSpecialty(specialtyId);
+    if (viewMode !== 'listing') {
+      setViewMode('listing');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSearchButtonClick = () => {
     // This will hit a different API based on user's future requirement
@@ -383,6 +411,9 @@ export default function BookAppointment({ defaultView = 'listing' }) {
         } else {
           setSelectedDate('');
           setAvailableTimeSlots([]);
+        }
+        if (opdSessionsList.length > 0) {
+          setSelectedSessionId(opdSessionsList[0].id);
         }
       }
     } catch (err) {
@@ -666,7 +697,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                   <select
                     className="find-doctor-select"
                     value={selectedSpecialty}
-                    onChange={(e) => setSelectedSpecialty(e.target.value)}
+                    onChange={(e) => handleSpecialtyChange(e.target.value)}
                     disabled={isSearching}
                   >
                     <option value="">{isSearching ? 'Loading...' : 'All Specialties'}</option>
@@ -840,7 +871,12 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                       className="find-doctor-input"
                       placeholder="Doctor name or condition..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (viewMode !== 'listing') {
+                          setViewMode('listing');
+                        }
+                      }}
                     />
                   </div>
 
@@ -850,7 +886,7 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     <select
                       className="find-doctor-select"
                       value={selectedSpecialty}
-                      onChange={(e) => setSelectedSpecialty(e.target.value)}
+                      onChange={(e) => handleSpecialtyChange(e.target.value)}
                       disabled={isSearching}
                     >
                       <option value="">{isSearching ? 'Loading...' : 'All Specialties'}</option>
@@ -870,7 +906,12 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                     <select
                       className="find-doctor-select"
                       value={selectedLocation}
-                      onChange={(e) => setSelectedLocation(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedLocation(e.target.value);
+                        if (viewMode !== 'listing') {
+                          setViewMode('listing');
+                        }
+                      }}
                     >
                       <option value="">All Locations</option>
                       {locationsList.map(loc => (
@@ -904,6 +945,8 @@ export default function BookAppointment({ defaultView = 'listing' }) {
                         setSearchQuery('');
                         setSelectedSpecialty('');
                         setSelectedLocation('');
+                        setViewMode('listing');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       style={{
                         width: '100%',

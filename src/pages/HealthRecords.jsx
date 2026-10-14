@@ -3,6 +3,7 @@ import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
 import { LAB_RESULT_FLAG } from '../constants/labConstants';
 import PdfViewer from '../components/PdfViewer';
+import { formatDateForDisplay, formatDateTimeForDisplay, formatDateTimeWithSecondsForDisplay } from '../utils/dateUtils';
 
 export default function HealthRecords() {
   const [activeTab, setActiveTab] = useState('opd-prescriptions');
@@ -187,8 +188,8 @@ export default function HealthRecords() {
 
           if (res && res.response && res.response.content) {
             const mappedData = res.response.content.map(item => {
-              let date = item.visitDateTime || 'N/A';
-              if (date.includes(' ')) date = date.split(' ')[0];
+              const rawDate = item.visitDateTime || item.visitDate || item.appointmentDate || item.date;
+              const date = formatDateForDisplay(rawDate);
 
               return {
                 id: item.visitId || Math.random().toString(),
@@ -751,7 +752,7 @@ export default function HealthRecords() {
                       ) : (
                         filteredOpd.map((item) => (
                           <tr key={item.id}>
-                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.date}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.date || formatDateForDisplay(item.raw?.visitDateTime || item.raw?.visitDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.doctor}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.specialty}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }} title={item.diagnosis || '-'}>{item.diagnosis || '-'}</td>
@@ -892,12 +893,12 @@ export default function HealthRecords() {
                       ) : (
                         displayedLab.map((item, index) => (
                           <tr key={item.resultEntryDetailsId}>
-                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.orderDate || item.investigationDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
                             <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.investigationDate || item.orderDate)}</td>
                             <td className="py-2.5 px-3 text-nowrap">
                               <button
                                 type="button"
@@ -1041,11 +1042,11 @@ export default function HealthRecords() {
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.modality}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
-                              {item.orderDate || '-'} <br />
+                              {formatDateForDisplay(item.orderDate)} <br />
                               <small className="text-muted">{item.orderTime && item.orderTime.includes('T') ? item.orderTime.split('T')[1].substring(0, 5) : item.orderTime}</small>
                             </td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>
-                              {item.studyDate || '-'} <br />
+                              {formatDateForDisplay(item.studyDate)} <br />
                               <small className="text-muted">{item.studyTime && item.studyTime.includes('T') ? item.studyTime.split('T')[1].substring(0, 5) : item.studyTime}</small>
                             </td>
                             <td className="py-2.5 px-3 text-nowrap">
@@ -1203,12 +1204,12 @@ export default function HealthRecords() {
                       ) : (
                         filteredIpdLab.map((item) => (
                           <tr key={item.resultEntryDetailsId}>
-                            <td className="  " style={{ fontSize: '0.88rem' }}>{item.orderDate}</td>
+                            <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.orderDate || item.investigationDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
                             <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
-                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.investigationDate}</td>
+                            <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.investigationDate || item.orderDate)}</td>
                             <td className="py-2.5 px-3 text-nowrap">
                               <button
                                 type="button"
@@ -1316,8 +1317,8 @@ export default function HealthRecords() {
                           return (
                             <tr key={item.inpatientId || Math.random()}>
                               <td className="  " style={{ fontSize: '0.88rem' }}>{item.admissionNo}</td>
-                              <td className="  " style={{ fontSize: '0.88rem' }}>{admDate}</td>
-                              <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{disDate}</td>
+                              <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateTimeForDisplay(item.admissionDateTime)}</td>
+                              <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.dischargeDate)}</td>
                               <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.categoryName}</td>
                               <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.doctorName}</td>
                               <td className="py-2.5 px-3 text-nowrap">
@@ -1449,7 +1450,7 @@ export default function HealthRecords() {
                       {selectedDoc.type}
                     </span>
                     <div className="small text-muted">
-                      Date: <strong>{selectedDoc.record.date || selectedDoc.record.studyDate || selectedDoc.record.admissionDate}</strong>
+                      Date: <strong>{formatDateForDisplay(selectedDoc.record.date || selectedDoc.record.studyDate || selectedDoc.record.admissionDate)}</strong>
                     </div>
                   </div>
                 </div>

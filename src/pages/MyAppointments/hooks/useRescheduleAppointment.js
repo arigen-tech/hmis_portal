@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
 import { ENDPOINTS, APPOINTMENT_TYPE, DEPT_CODE } from '../../../constants';
+import { parseTimeToMinutes } from '../../../utils/dateUtils';
 
 export function useRescheduleAppointment({ showToast, onRefresh }) {
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -24,9 +25,12 @@ export function useRescheduleAppointment({ showToast, onRefresh }) {
       try {
         const res = await apiService.get(ENDPOINTS.MASTER.GET_OPD_SESSIONS);
         if (!ignore && res && res.status === 200 && res.response) {
-          setOpdSessionsList(res.response);
-          if (res.response.length > 0) {
-            setSelectedSessionId(res.response[0].id);
+          const sorted = [...res.response].sort((a, b) => {
+            return parseTimeToMinutes(a.fromTime) - parseTimeToMinutes(b.fromTime);
+          });
+          setOpdSessionsList(sorted);
+          if (sorted.length > 0) {
+            setSelectedSessionId(sorted[0].id);
           }
         }
       } catch (e) {

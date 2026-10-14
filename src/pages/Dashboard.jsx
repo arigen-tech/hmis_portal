@@ -14,9 +14,10 @@ export default function Dashboard() {
     totalAppointments: 0,
     upcoming: 0,
     prescriptions: 0,
-    medicalRecords: 15
+    medicalRecords: 0
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
   useEffect(() => {
     const data = localStorage.getItem('patientDetails');
@@ -39,10 +40,14 @@ export default function Dashboard() {
       } catch (e) {}
     }
 
+    if (!parsedPatient || !parsedHospital) {
+      setIsLoadingCounts(false);
+      return;
+    }
+
     const fetchAppointments = async () => {
-      if (!parsedPatient || !parsedHospital) return;
-      
       setIsLoading(true);
+      setIsLoadingCounts(true);
       try {
         const queryParams = new URLSearchParams({
           hospitalId: parsedHospital.id,
@@ -62,13 +67,16 @@ export default function Dashboard() {
           if (countsResponse.status === 200 && countsResponse.response) {
             setCounts(prev => ({
               ...prev,
-              totalAppointments: countsResponse.response.totalCompleteCount || 0,
-              upcoming: countsResponse.response.totalPendingCount || 0,
-              prescriptions: countsResponse.response.prescriptionCount || 0
+              totalAppointments: countsResponse.response.totalCompleteCount ?? 0,
+              upcoming: countsResponse.response.totalPendingCount ?? 0,
+              prescriptions: countsResponse.response.prescriptionCount ?? 0,
+              medicalRecords: countsResponse.response.medicalRecordCount ?? countsResponse.response.totalRecordCount ?? 15
             }));
           }
         } catch (error) {
           console.error("Failed to fetch counts:", error);
+        } finally {
+          setIsLoadingCounts(false);
         }
         
         const response = await apiService.get(`${ENDPOINTS.APPOINTMENTS.HISTORY_LIST}?${queryParams}`);
@@ -130,7 +138,11 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="col-lg-4 text-lg-end mt-3 mt-lg-0">
-              <Link to="/book-appointment" className="btn btn-ari-primary">
+              <Link 
+                to="/book-appointment" 
+                className="btn btn-ari-primary position-relative" 
+                style={{ zIndex: 3, cursor: 'pointer' }}
+              >
                 <i className="fas fa-calendar-plus me-2"></i> Book New Appointment
               </Link>
             </div>
@@ -143,43 +155,83 @@ export default function Dashboard() {
         {/* Stats Cards */}
         <div className="row g-4 mb-5">
           <div className="col-xl-3 col-md-6">
-            <div className="stats-card">
-              <div className="stats-icon icon-primary">
-                <i className="fas fa-calendar-check"></i>
+            <Link to="/appointments?status=completed" className="text-decoration-none d-block h-100" title="View Completed Appointments">
+              <div className="stats-card h-100">
+                <div className="stats-icon icon-primary">
+                  <i className="fas fa-calendar-check"></i>
+                </div>
+                <h3 className="mt-3 text-dark d-flex align-items-center justify-content-center" style={{ minHeight: '38px' }}>
+                  {isLoadingCounts ? (
+                    <span className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '1.4rem', height: '1.4rem', borderWidth: '2.5px' }}>
+                      <span className="visually-hidden">Loading...</span>
+                    </span>
+                  ) : (
+                    counts.totalAppointments
+                  )}
+                </h3>
+                <p className="text-muted mb-0">Total Appointments</p>
               </div>
-              <h3 className="mt-3">{counts.totalAppointments}</h3>
-              <p className="text-muted mb-0">Total Appointments</p>
-            </div>
+            </Link>
           </div>
 
           <div className="col-xl-3 col-md-6">
-            <div className="stats-card">
-              <div className="stats-icon icon-success">
-                <i className="fas fa-clock"></i>
+            <Link to="/appointments?status=pending" className="text-decoration-none d-block h-100" title="View Pending & Upcoming Appointments">
+              <div className="stats-card h-100">
+                <div className="stats-icon icon-success">
+                  <i className="fas fa-clock"></i>
+                </div>
+                <h3 className="mt-3 text-dark d-flex align-items-center justify-content-center" style={{ minHeight: '38px' }}>
+                  {isLoadingCounts ? (
+                    <span className="spinner-border spinner-border-sm text-success" role="status" style={{ width: '1.4rem', height: '1.4rem', borderWidth: '2.5px' }}>
+                      <span className="visually-hidden">Loading...</span>
+                    </span>
+                  ) : (
+                    counts.upcoming
+                  )}
+                </h3>
+                <p className="text-muted mb-0">Upcoming</p>
               </div>
-              <h3 className="mt-3">{counts.upcoming}</h3>
-              <p className="text-muted mb-0">Upcoming</p>
-            </div>
+            </Link>
           </div>
 
           <div className="col-xl-3 col-md-6">
-            <div className="stats-card">
-              <div className="stats-icon icon-warning">
-                <i className="fas fa-prescription"></i>
+            <Link to="/health-records" className="text-decoration-none d-block h-100" title="View Prescriptions">
+              <div className="stats-card h-100">
+                <div className="stats-icon icon-warning">
+                  <i className="fas fa-prescription"></i>
+                </div>
+                <h3 className="mt-3 text-dark d-flex align-items-center justify-content-center" style={{ minHeight: '38px' }}>
+                  {isLoadingCounts ? (
+                    <span className="spinner-border spinner-border-sm text-warning" role="status" style={{ width: '1.4rem', height: '1.4rem', borderWidth: '2.5px' }}>
+                      <span className="visually-hidden">Loading...</span>
+                    </span>
+                  ) : (
+                    counts.prescriptions
+                  )}
+                </h3>
+                <p className="text-muted mb-0">Prescriptions</p>
               </div>
-              <h3 className="mt-3">{counts.prescriptions}</h3>
-              <p className="text-muted mb-0">Prescriptions</p>
-            </div>
+            </Link>
           </div>
 
           <div className="col-xl-3 col-md-6">
-            <div className="stats-card">
-              <div className="stats-icon icon-danger">
-                <i className="fas fa-file-medical"></i>
+            <Link to="/health-records" className="text-decoration-none d-block h-100" title="View Medical Records">
+              <div className="stats-card h-100">
+                <div className="stats-icon icon-danger">
+                  <i className="fas fa-file-medical"></i>
+                </div>
+                <h3 className="mt-3 text-dark d-flex align-items-center justify-content-center" style={{ minHeight: '38px' }}>
+                  {isLoadingCounts ? (
+                    <span className="spinner-border spinner-border-sm text-danger" role="status" style={{ width: '1.4rem', height: '1.4rem', borderWidth: '2.5px' }}>
+                      <span className="visually-hidden">Loading...</span>
+                    </span>
+                  ) : (
+                    counts.medicalRecords
+                  )}
+                </h3>
+                <p className="text-muted mb-0">Medical Records</p>
               </div>
-              <h3 className="mt-3">{counts.medicalRecords}</h3>
-              <p className="text-muted mb-0">Medical Records</p>
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -234,7 +286,7 @@ export default function Dashboard() {
                             <small className="text-muted">{app.time}</small>
                           </div>
                         </div>
-                        <div className="col-md-3 mb-3 mb-md-0">
+                        <div className="col-md-4 mb-3 mb-md-0">
                           <h6 className="mb-1 fw-bold">{app.doctor || app.specialty}</h6>
                           <small className="doctor-specialty">{app.doctor ? app.specialty : 'Diagnostic'}</small>
                         </div>
@@ -242,19 +294,10 @@ export default function Dashboard() {
                           <p className="mb-1 fw-medium">{app.location}</p>
                           <small className="text-muted">{app.room}</small>
                         </div>
-                        <div className="col-md-2 mb-3 mb-md-0">
+                        <div className="col-md-3 mb-3 mb-md-0 text-md-end">
                           <span className={`status-badge status-${app.status}`}>
                             {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                           </span>
-                        </div>
-                        <div className="col-md-2 text-md-end">
-                          <button 
-                            type="button"
-                            className="btn btn-ari-outline btn-sm"
-                            onClick={() => alert(`Details for appointment with ${app.doctor}`)}
-                          >
-                            View Details
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -274,9 +317,9 @@ export default function Dashboard() {
               </div>
               <div className="card-ari-body">
                 <div className="d-grid gap-3">
-                  <a href="#doctors" className="btn btn-ari-primary">
-                    <i className="fas fa-search me-2"></i> Find Doctor
-                  </a>
+                  <Link to="/book-appointment" className="btn btn-ari-primary">
+                    <i className="fas fa-calendar-plus me-2"></i> Book Appointment
+                  </Link>
                   <Link to="/appointments" className="btn btn-ari-outline">
                     <i className="fas fa-history me-2"></i> View All Appointments
                   </Link>
