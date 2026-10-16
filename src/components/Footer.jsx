@@ -8,10 +8,10 @@ export default function Footer() {
         <div className="row">
           <div className="col-lg-4 col-md-6 mb-5">
             <div className="brand-name mb-4">
-              <img 
-                src="https://i.postimg.cc/K8xgWmqf/logo-hal.png" 
-                alt="ARI-Health Logo" 
-                style={{ height: '50px', background: 'var(--light-color)', padding: '6px 12px', borderRadius: '8px' }} 
+              <img
+                src="https://i.postimg.cc/K8xgWmqf/logo-hal.png"
+                alt="ARI-Health Logo"
+                style={{ height: '50px', background: 'var(--light-color)', padding: '6px 12px', borderRadius: '8px' }}
               />
             </div>
             <p className="mb-4 text-footer-muted">
@@ -24,7 +24,7 @@ export default function Footer() {
               <a href="#instagram" className="text-white"><i className="fab fa-instagram"></i></a>
             </div>
           </div>
-          
+
           <div className="col-lg-2 col-md-6 mb-5">
             <h5 className="mb-4 text-white">Quick Links</h5>
             <div className="footer-links">
@@ -51,20 +51,21 @@ export default function Footer() {
             <h5 className="mb-4 text-white">Contact Us</h5>
             <div className="footer-links">
               <p className="mb-3 text-footer-muted">
-                <i className="fas fa-phone me-3"></i> 1800-300-9000
+                <i className="fas fa-phone me-3"></i>  0120-4149597, +91-9971009929
               </p>
               <p className="mb-3 text-footer-muted">
                 <i className="fas fa-envelope me-3"></i> support@arihealth.com
               </p>
               <p className="mb-0 text-footer-muted">
-                <i className="fas fa-map-marker-alt me-3"></i> 123 Health Street, Medical City, India
+                <i className="fas fa-map-marker-alt me-3"></i> A-1031-1033, 10th Floor, Tower-A, i-Thum Building
+                Secor-62, Noida,  Uttar Pradesh - 201309
               </p>
             </div>
           </div>
         </div>
 
         <hr className="mt-4 mb-4" style={{ borderColor: 'var(--footer-border)' }} />
-        
+
         <div className="row">
           <div className="col-md-6">
             <p className="mb-0 text-footer-muted">
