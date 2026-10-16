@@ -15,6 +15,30 @@ export default function HealthRecords() {
 
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfName, setPdfName] = useState('');
+  const [selectedHtmlResult, setSelectedHtmlResult] = useState(null);
+
+  const isHtmlResult = (item) => {
+    if (!item || !item.result) return false;
+    if (item.investigationType && item.investigationType.toLowerCase() === 't') return true;
+    return typeof item.result === 'string' && /<[a-z][\s\S]*>/i.test(item.result);
+  };
+
+  const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const getPatientName = (item) => {
+    if (item?.patientName && item.patientName.trim()) return item.patientName.trim();
+    try {
+      const raw = localStorage.getItem('patientDetails');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return (parsed.patientName || parsed.name || '').trim();
+      }
+    } catch (e) {}
+    return '';
+  };
 
   // Filters state
   const [opdSpecialtyFilter, setOpdSpecialtyFilter] = useState('');
@@ -895,7 +919,31 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.orderDate || item.investigationDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className="py-2.5 px-3" style={{ fontSize: '0.88rem' }}>
+                              {isHtmlResult(item) ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-link p-0 text-start text-primary text-decoration-underline border-0 shadow-none"
+                                  style={{
+                                    fontSize: '0.88rem',
+                                    maxWidth: '280px',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    lineHeight: '1.3'
+                                  }}
+                                  onClick={() => setSelectedHtmlResult(item)}
+                                  title="Click to view full report"
+                                >
+                                  {stripHtml(item.result)}
+                                </button>
+                              ) : (
+                                <span className={`text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`}>
+                                  {item.result || '-'}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.investigationDate || item.orderDate)}</td>
@@ -1206,7 +1254,31 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.orderDate || item.investigationDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
-                            <td className={`py-2.5 px-3 text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`} style={{ fontSize: '0.88rem' }}>{item.result}</td>
+                            <td className="py-2.5 px-3" style={{ fontSize: '0.88rem' }}>
+                              {isHtmlResult(item) ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-link p-0 text-start text-primary text-decoration-underline border-0 shadow-none"
+                                  style={{
+                                    fontSize: '0.88rem',
+                                    maxWidth: '280px',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    lineHeight: '1.3'
+                                  }}
+                                  onClick={() => setSelectedHtmlResult(item)}
+                                  title="Click to view full report"
+                                >
+                                  {stripHtml(item.result)}
+                                </button>
+                              ) : (
+                                <span className={`text-nowrap ${item.resultFlagName && item.resultFlagName.trim().toLowerCase() !== LAB_RESULT_FLAG.NORMAL.toLowerCase() ? 'text-danger fw-bold' : 'text-dark'}`}>
+                                  {item.result || '-'}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.unit}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{item.range}</td>
                             <td className="py-2.5 px-3 text-dark text-nowrap" style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.investigationDate || item.orderDate)}</td>
@@ -1865,6 +1937,86 @@ export default function HealthRecords() {
                 aria-label="Close"
                 onClick={() => setDownloadSuccessToast(false)}
               ></button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HTML Lab Report Modal */}
+      {selectedHtmlResult && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 1060 }}
+          onClick={() => setSelectedHtmlResult(null)}
+        >
+          <div
+            className="modal-dialog modal-dialog-centered modal-lg"
+            role="document"
+            style={{ maxWidth: '750px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content rounded-3 border-0 shadow bg-white">
+              {/* Modal Header */}
+              <div className="modal-header border-bottom py-3 px-4">
+                <h5 className="modal-title fw-bold text-dark mb-0 fs-6">
+                  {selectedHtmlResult.investigationName}
+                  {getPatientName(selectedHtmlResult) ? ` - ${getPatientName(selectedHtmlResult)}` : ''}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close shadow-none"
+                  aria-label="Close"
+                  onClick={() => setSelectedHtmlResult(null)}
+                ></button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="modal-body p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                <style>{`
+                  .report-html-content h1, .report-html-content h2, .report-html-content h3 {
+                    font-size: 1.15rem;
+                    font-weight: 700;
+                    margin-top: 0.25rem;
+                    margin-bottom: 0.75rem;
+                    color: #111827;
+                  }
+                  .report-html-content p {
+                    margin-bottom: 0.65rem;
+                    color: #374151;
+                  }
+                  .report-html-content ul {
+                    padding-left: 1.25rem;
+                    margin-bottom: 0.75rem;
+                    list-style-type: disc;
+                  }
+                  .report-html-content li {
+                    margin-bottom: 0.35rem;
+                    color: #374151;
+                  }
+                  .report-html-content strong {
+                    color: #111827;
+                  }
+                `}</style>
+                <div
+                  className="report-html-content text-dark"
+                  style={{ fontSize: '0.9rem', lineHeight: '1.6' }}
+                  dangerouslySetInnerHTML={{ __html: selectedHtmlResult.result }}
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer border-0 pt-0 px-4 pb-3 justify-content-end">
+                <button
+                  type="button"
+                  className="btn btn-secondary px-4 py-1.5 rounded-2 fw-medium"
+                  style={{ backgroundColor: '#5c636a', borderColor: '#565e64' }}
+                  onClick={() => setSelectedHtmlResult(null)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
