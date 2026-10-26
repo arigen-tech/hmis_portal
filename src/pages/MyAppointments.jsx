@@ -191,12 +191,19 @@ export default function MyAppointments() {
     }
   };
 
-  const handleOpenInvoice = (app) => {
+  const handleOpenInvoice = (app, forcedType) => {
     if (!app.billHdId) {
       showToast("No invoice available", "error");
       return;
     }
-    const url = `${ENDPOINTS.APPOINTMENTS.OPD_INVOICE}?billHdId=${app.billHdId}&flag=D`;
+    const type = forcedType || app.type;
+    let invoiceEndpoint = ENDPOINTS.APPOINTMENTS.OPD_INVOICE;
+    if (type === APPOINTMENT_TYPE.LAB) {
+      invoiceEndpoint = ENDPOINTS.APPOINTMENTS.LAB_INVOICE;
+    } else if (type === APPOINTMENT_TYPE.RADIOLOGY) {
+      invoiceEndpoint = ENDPOINTS.APPOINTMENTS.RADIOLOGY_INVOICE;
+    }
+    const url = `${invoiceEndpoint}?billHdId=${app.billHdId}&flag=D`;
     openPdf(url, `Invoice - ${app.date}`, `${app.id}_invoice`);
   };
 
@@ -346,7 +353,7 @@ export default function MyAppointments() {
       isLoading={isLoading}
       loadingPdfId={loadingPdfId}
       handleOpenBookModal={handleOpenBookModal}
-      handleOpenInvoice={handleOpenInvoice}
+      handleOpenInvoice={(app) => handleOpenInvoice(app, APPOINTMENT_TYPE.LAB)}
       handleOpenReschedule={handleOpenReschedule}
       handleOpenCancel={handleOpenCancel}
       handleOpenPayModal={handleOpenPayModal}
@@ -372,7 +379,7 @@ export default function MyAppointments() {
       isLoading={isLoading}
       loadingPdfId={loadingPdfId}
       handleOpenBookModal={handleOpenBookModal}
-      handleOpenInvoice={handleOpenInvoice}
+      handleOpenInvoice={(app) => handleOpenInvoice(app, APPOINTMENT_TYPE.RADIOLOGY)}
       handleOpenReschedule={handleOpenReschedule}
       handleOpenCancel={handleOpenCancel}
       handleOpenPayModal={handleOpenPayModal}
