@@ -40,6 +40,8 @@ export const ENDPOINTS = {
     OPD_PRESCRIPTION_SLIP: '/report/opdPrescriptionSlip',
     OPD_CASE_SHEET_REPORT: '/report/opdCaseSheetReport',
     OPD_INVOICE: '/report/opdInvoice',
+    LAB_INVOICE: '/report/labInvoice',
+    RADIOLOGY_INVOICE: '/report/radiologyInvoice',
     CANCELLED_REFUND_LIST: '/mobileController/getCancelledRefundAppointments',
     RESCHEDULE_APPOINTMENT: '/registration/rescheduleAppointment',
     CANCEL_APPOINTMENT: '/registration/cancelAppointment',
