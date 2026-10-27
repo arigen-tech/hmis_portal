@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AlertNotification from '../components/AlertNotification';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
@@ -16,7 +16,6 @@ export default function Login() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [selectedCode, setSelectedCode] = useState('+91');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [alert, setAlert] = useState(null);
   
@@ -25,7 +24,14 @@ export default function Login() {
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
+  // Password Login state
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingInWithPassword, setIsLoggingInWithPassword] = useState(false);
+
   const inputRef = useRef(null);
+  const passwordRef = useRef(null);
   const dropdownRef = useRef(null);
   const otpRefs = useRef([]);
   const navigate = useNavigate();
@@ -69,9 +75,60 @@ export default function Login() {
     return true;
   };
 
-  const handleLoginWithPin = (e) => {
-    e.preventDefault();
-    setAlert({ message: 'Login with PIN is currently not available.', type: 'warning' });
+  const handleTogglePasswordSection = (e) => {
+    if (e) e.preventDefault();
+    if (!showPasswordSection) {
+      setShowPasswordSection(true);
+      setTimeout(() => passwordRef.current?.focus(), 100);
+    } else {
+      handlePasswordLogin(e);
+    }
+  };
+
+  const handlePasswordLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!validateMobile()) return;
+    if (!password.trim()) {
+      setAlert({ message: 'Please enter your password', type: 'warning' });
+      passwordRef.current?.focus();
+      return;
+    }
+
+    setIsLoggingInWithPassword(true);
+    setAlert({ message: 'Logging in with password...', type: 'info' });
+
+    try {
+      const data = await apiService.post(
+        ENDPOINTS.AUTH.PASSWORD_LOGIN,
+        {
+          mobileNo: mobileNumber,
+          password: password,
+        },
+        { requireAuth: false }
+      );
+
+      if (data.status === 200 && data.response?.token) {
+        localStorage.setItem('token', data.response.token);
+        if (data.response.refreshToken) {
+          localStorage.setItem('refreshToken', data.response.refreshToken);
+        }
+        if (data.response.patientIdResponseList && data.response.patientIdResponseList.length > 0) {
+          localStorage.setItem('patientDetails', JSON.stringify(data.response.patientIdResponseList[0]));
+          localStorage.setItem('patientList', JSON.stringify(data.response.patientIdResponseList));
+        }
+
+        setAlert({ message: data.response.message || 'Login successful! Redirecting...', type: 'success' });
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else {
+        setAlert({ message: data.message || 'Login failed. Please check your credentials.', type: 'error' });
+      }
+    } catch (error) {
+      setAlert({ message: error?.message || 'Network Error. Failed to login.', type: 'error' });
+    } finally {
+      setIsLoggingInWithPassword(false);
+    }
   };
 
   const handleGetOtp = async (e) => {
@@ -297,7 +354,11 @@ export default function Login() {
                           onChange={handleMobileChange}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              handleGetOtp(e);
+                              if (showPasswordSection) {
+                                passwordRef.current?.focus();
+                              } else {
+                                handleTogglePasswordSection(e);
+                              }
                             }
                           }}
                           required 
@@ -305,18 +366,58 @@ export default function Login() {
                       </div>
                       <div className="form-text mt-2">Please enter your 10-digit mobile number.</div>
                     </div>
+
+                    {showPasswordSection && (
+                      <div className="mb-4">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <label htmlFor="passwordInput" className="form-label mb-0">Password</label>
+                          <Link to="/forgot-password" className="forgot-password-link">
+                            Forgot Password?
+                          </Link>
+                        </div>
+                        <div className="auth-input-group mt-2">
+                          <input 
+                            ref={passwordRef}
+                            type={showPassword ? 'text' : 'password'}
+                            className="form-control auth-input" 
+                            id="passwordInput" 
+                            placeholder="Enter your password" 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handlePasswordLogin(e);
+                              }
+                            }}
+                          />
+                          <button 
+                            type="button" 
+                            className="password-toggle-btn" 
+                            onClick={() => setShowPassword(!showPassword)}
+                            tabIndex="-1"
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                          >
+                            <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="d-grid gap-3">
                       <button 
                         type="button" 
                         className="btn btn-login btn-pin" 
                         id="loginWithPin"
-                        onClick={handleLoginWithPin}
-                        disabled={isVerifyingPin || isSendingOtp}
+                        onClick={handleTogglePasswordSection}
+                        disabled={isLoggingInWithPassword || isSendingOtp}
                       >
-                        {isVerifyingPin ? (
+                        {isLoggingInWithPassword ? (
                           <>
-                            <span className="spinner me-2"></span> Verifying PIN...
+                            <span className="spinner me-2"></span> Logging in...
+                          </>
+                        ) : showPasswordSection ? (
+                          <>
+                            <i className="fas fa-sign-in-alt me-2"></i> Login
                           </>
                         ) : (
                           <>
@@ -330,7 +431,7 @@ export default function Login() {
                         className="btn btn-login btn-otp" 
                         id="getOtp"
                         onClick={handleGetOtp}
-                        disabled={isVerifyingPin || isSendingOtp}
+                        disabled={isLoggingInWithPassword || isSendingOtp}
                       >
                         {isSendingOtp ? (
                           <>
@@ -338,7 +439,7 @@ export default function Login() {
                           </>
                         ) : (
                           <>
-                            <i className="fas fa-mobile-alt me-2"></i> Get OTP
+                            <i className="fas fa-mobile-alt me-2"></i> {showPasswordSection ? 'Get OTP Instead' : 'Get OTP'}
                           </>
                         )}
                       </button>
