@@ -14,6 +14,9 @@ export const ENDPOINTS = {
   AUTH: {
     SEND_OTP: '/mobileController/mLogin',
     VERIFY_OTP: '/mobileController/verifyOtp',
+    PASSWORD_LOGIN: '/mobileController/patientPasswordLogin',
+    FORGOT_PASSWORD: '/mobileController/forgotPatientPassword',
+    RESET_PASSWORD: '/mobileController/resetPatientPassword',
     SWITCH_PATIENT: '/mobileController/switchPatient',
     REFRESH_TOKEN: '/mobileController/refreshToken',
     // LOGOUT: '/auth/logout',

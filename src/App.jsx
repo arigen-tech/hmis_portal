@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import MyAppointments from './pages/MyAppointments';
 import BookAppointment from './pages/BookAppointment';
@@ -20,6 +21,8 @@ export default function App() {
         <Route element={<PublicRoute />}>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/forget-password" element={<ForgotPassword />} />
         </Route>
 
         {/* Protected Routes (Only accessible when logged in, with shared Layout) */}
