@@ -44,8 +44,8 @@ export default function LabCard({
               value={historyFilter}
               onChange={(e) => setHistoryFilter(e.target.value)}
             >
-              <option value="all_history">All History</option>
               <option value="present">Present</option>
+              <option value="all_history">All History</option>
             </select>
           )}
           <button

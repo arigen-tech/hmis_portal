@@ -26,7 +26,7 @@ export default function MyAppointments() {
   // Navigation State
   const [activeMenu, setActiveMenu] = useState(APPOINTMENT_TYPE.OPD);
   const [activeSubTab, setActiveSubTab] = useState('upcoming');
-  const [historyFilter, setHistoryFilter] = useState('all_history');
+  const [historyFilter, setHistoryFilter] = useState('present');
   const [diagnosticTab, setDiagnosticTab] = useState(APPOINTMENT_TYPE.RADIOLOGY);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
