@@ -892,6 +892,7 @@ export default function HealthRecords() {
                       <tr>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Investigation Date</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Investigation Name</th>
+                        <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Sub Investigation Name</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Result</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Unit</th>
                         <th scope="col" className=" " style={{ fontSize: '0.85rem' }}>Range</th>
@@ -902,7 +903,7 @@ export default function HealthRecords() {
                     <tbody>
                       {labLoading ? (
                         <tr>
-                          <td colSpan="7" className="text-center py-4">
+                          <td colSpan="8" className="text-center py-4">
                             <div className="spinner-border text-primary" role="status">
                               <span className="visually-hidden">Loading...</span>
                             </div>
@@ -910,7 +911,7 @@ export default function HealthRecords() {
                         </tr>
                       ) : displayedLab.length === 0 ? (
                         <tr>
-                          <td colSpan="7" className="text-center py-4 text-muted">
+                          <td colSpan="8" className="text-center py-4 text-muted">
                             No lab reports found.
                           </td>
                         </tr>
@@ -919,6 +920,7 @@ export default function HealthRecords() {
                           <tr key={item.resultEntryDetailsId}>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{formatDateForDisplay(item.orderDate || item.investigationDate)}</td>
                             <td className="  " style={{ fontSize: '0.88rem' }}>{item.investigationName}</td>
+                            <td className="py-2.5 px-3 text-dark" style={{ fontSize: '0.88rem' }}>{item.subInvestigationName?.trim() || '-'}</td>
                             <td className="py-2.5 px-3" style={{ fontSize: '0.88rem' }}>
                               {isHtmlResult(item) ? (
                                 <button
