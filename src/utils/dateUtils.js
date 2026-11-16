@@ -2,6 +2,52 @@
  * Date and time display formatting utilities
  */
 
+export const getDateInputValue = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getDateOnlyValue = (dateString) => {
+    if (dateString instanceof Date && !isNaN(dateString.getTime())) {
+        return getDateInputValue(dateString);
+    }
+
+    if (typeof dateString !== 'string') return null;
+
+    const value = dateString.trim();
+    const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoDate) return normalizeDateParts(isoDate[1], isoDate[2], isoDate[3]);
+
+    const localizedDate = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (localizedDate) return normalizeDateParts(localizedDate[3], localizedDate[2], localizedDate[1]);
+    return null;
+};
+
+const normalizeDateParts = (year, month, day) => {
+    const yearNumber = Number(year);
+    const monthNumber = Number(month);
+    const dayNumber = Number(day);
+    const date = new Date(yearNumber, monthNumber - 1, dayNumber);
+    if (
+        date.getFullYear() !== yearNumber ||
+        date.getMonth() + 1 !== monthNumber ||
+        date.getDate() !== dayNumber
+    ) {
+        return null;
+    }
+
+    return `${yearNumber}-${String(monthNumber).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+};
+
+export const isDateTodayOrFuture = (dateString, today = new Date()) => {
+    const dateValue = getDateOnlyValue(dateString);
+    const todayValue = getDateOnlyValue(today);
+    if (!dateValue || !todayValue) return false;
+    return dateValue >= todayValue;
+};
+
 export const formatDateForDisplay = (dateString) => {
     if (!dateString || dateString === 'N/A' || dateString === '-') return "N/A";
     try {
