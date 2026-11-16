@@ -507,10 +507,7 @@ export default function Navbar() {
                 </NavLink>
               </li>
               <li className="nav-item">
-                <NavLink 
-                  className={`nav-link nav-ari-link ${isRadiologyActive ? 'active' : ''}`} 
-                  to="/appointments?tab=radiology"
-                >
+                <NavLink className="nav-link nav-ari-link" to="/book-radiology-and-lab-test">
                   <i className="fas fa-x-ray me-1" style={{ color: '#7C3AED' }}></i>
                   Book Radiology &amp; Lab
                 </NavLink>
