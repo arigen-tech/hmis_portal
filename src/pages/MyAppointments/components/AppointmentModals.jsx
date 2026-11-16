@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../../../services/apiService';
 import { ENDPOINTS } from '../../../constants/apiEndpoints';
 import { useStoredSession } from '../hooks/useStoredSession';
+import { getDateInputValue } from '../../../utils/dateUtils';
 export function AppointmentModals({
   modalType,
   selectedAppointment,
@@ -330,7 +331,7 @@ export function AppointmentModals({
                             className="form-control"
                             value={rescheduleDate}
                             onChange={(e) => setRescheduleDate(e.target.value)}
-                            min="2026-09-01"
+                            min={getDateInputValue()}
                           />
                         </div>
 
