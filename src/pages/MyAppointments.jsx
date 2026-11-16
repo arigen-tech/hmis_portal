@@ -4,6 +4,7 @@ import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
 import PdfViewer from '../components/PdfViewer';
 import { VISIT_STATUS, APPOINTMENT_TYPE, MODAL_TYPE } from '../constants';
+import { isDateTodayOrFuture } from '../utils/dateUtils';
 
 import { 
   useToast, useStoredSession, useMasterData, useAppointmentModal, 
@@ -142,6 +143,10 @@ export default function MyAppointments() {
 
   // Action handlers
   const handleOpenPayModal = (app) => {
+    if (!isDateTodayOrFuture(app.date)) {
+      showToast('Payment is available only for appointments scheduled for today or a future date.', 'error');
+      return;
+    }
     openModal(MODAL_TYPE.PAY, app);
   };
 

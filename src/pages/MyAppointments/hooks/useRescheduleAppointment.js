@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
 import { ENDPOINTS, APPOINTMENT_TYPE, DEPT_CODE } from '../../../constants';
-import { parseTimeToMinutes } from '../../../utils/dateUtils';
+import { getDateInputValue, isDateTodayOrFuture, parseTimeToMinutes } from '../../../utils/dateUtils';
 
 export function useRescheduleAppointment({ showToast, onRefresh }) {
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -98,7 +98,7 @@ export function useRescheduleAppointment({ showToast, onRefresh }) {
     setActiveAppointment(app);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    setRescheduleDate(tomorrow.toISOString().split('T')[0]);
+    setRescheduleDate(getDateInputValue(tomorrow));
     setRescheduleTime('11:00 AM');
     setShowRescheduleConfirm(false);
   }, []);
@@ -106,6 +106,11 @@ export function useRescheduleAppointment({ showToast, onRefresh }) {
   const handleApproveReschedule = useCallback(async (selectedAppointment) => {
     if (!selectedAppointment) return;
     const displayName = selectedAppointment.testName || selectedAppointment.doctor;
+
+    if (!isDateTodayOrFuture(rescheduleDate)) {
+      showToast("Please select today or a future date.", "error");
+      return false;
+    }
     
     setIsRescheduling(true);
     try {

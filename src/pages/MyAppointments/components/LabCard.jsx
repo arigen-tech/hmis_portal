@@ -1,4 +1,5 @@
 import React from 'react';
+import { isDateTodayOrFuture } from '../../../utils/dateUtils';
 
 export default function LabCard({
   labAppointments,
@@ -196,13 +197,15 @@ export default function LabCard({
 
                       {app.status === 'Scheduled' && app.paymentStatus === 'Pending' && (
                         <>
-                          <button
-                            type="button"
-                            className="btn-action-pay"
-                            onClick={() => handleOpenPayModal(app)}
-                          >
-                            Pay Now
-                          </button>
+                          {isDateTodayOrFuture(app.date) && (
+                            <button
+                              type="button"
+                              className="btn-action-pay"
+                              onClick={() => handleOpenPayModal(app)}
+                            >
+                              Pay Now
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn-action-outline"
@@ -292,4 +295,3 @@ export default function LabCard({
     </div>
   );
 }
-

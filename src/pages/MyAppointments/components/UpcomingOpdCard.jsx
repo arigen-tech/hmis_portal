@@ -1,4 +1,5 @@
 import React from 'react';
+import { isDateTodayOrFuture } from '../../../utils/dateUtils';
 
 export function UpcomingOpdCard({
   upcomingAppointments,
@@ -108,15 +109,7 @@ export function UpcomingOpdCard({
                   </td>
                   <td>
                     <div className="action-buttons-group">
-                      {app.paymentStatus === 'Pending' ? (
-                        <button
-                          type="button"
-                          className="btn-action-pay"
-                          onClick={() => handleOpenPayModal(app)}
-                        >
-                          Pay Now
-                        </button>
-                      ) : (
+                      {app.paymentStatus === 'Paid' ? (
                         <button
                           type="button"
                           className="btn-action-outline"
@@ -129,7 +122,15 @@ export function UpcomingOpdCard({
                             'View Invoice'
                           )}
                         </button>
-                      )}
+                      ) : app.paymentStatus === 'Pending' && isDateTodayOrFuture(app.date) ? (
+                        <button
+                          type="button"
+                          className="btn-action-pay"
+                          onClick={() => handleOpenPayModal(app)}
+                        >
+                          Pay Now
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="btn-action-outline"
