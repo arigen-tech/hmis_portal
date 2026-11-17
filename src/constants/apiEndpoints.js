@@ -94,5 +94,6 @@ export const ENDPOINTS = {
   },
   PATIENTS: {
     ADD_FAMILY_MEMBER: '/patient/register/family-member',
+    DEACTIVATE_FAMILY_MEMBER: '/mobileController/patientInactive',
   }
 };
