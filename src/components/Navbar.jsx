@@ -14,6 +14,7 @@ export default function Navbar() {
   const [showHospitalMenu, setShowHospitalMenu] = useState(false);
   const [patients, setPatients] = useState([]);
   const [activePatientId, setActivePatientId] = useState(null);
+  const [deactivatingPatientId, setDeactivatingPatientId] = useState(null);
   const [hospitals, setHospitals] = useState([]);
   const [activeHospital, setActiveHospital] = useState(null);
   const [newMemberForm, setNewMemberForm] = useState({
@@ -383,6 +384,67 @@ export default function Navbar() {
     }
   };
 
+  const handleDeactivateFamilyMember = async (patient) => {
+    if (!patient?.id) {
+      showToast('Unable to deactivate this patient: patient ID is missing.');
+      return;
+    }
+
+    if (String(patient.id) === String(activePatientId)) {
+      showToast('Switch to another profile before deactivating this patient.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to deactivate ${patient.name}?`)) {
+      return;
+    }
+
+    setDeactivatingPatientId(String(patient.id));
+    try {
+      const response = await apiService.put(
+        `${ENDPOINTS.PATIENTS.DEACTIVATE_FAMILY_MEMBER}/${encodeURIComponent(patient.id)}`,
+        {}
+      );
+
+      if (response?.status !== 200) {
+        showToast(response?.message || 'Failed to deactivate family member.');
+        return;
+      }
+
+      const removedPatientId = String(patient.id);
+      setPatients(current => current.filter(member => String(member.id) !== removedPatientId));
+
+      let patientListUpdated = true;
+      const storedPatientList = localStorage.getItem('patientList');
+      if (storedPatientList) {
+        try {
+          const parsedPatientList = JSON.parse(storedPatientList);
+          if (!Array.isArray(parsedPatientList)) {
+            throw new Error('Stored patient list is not an array.');
+          }
+          const updatedPatientList = parsedPatientList.filter(
+            member => String(member.patientId ?? member.id) !== removedPatientId
+          );
+          localStorage.setItem('patientList', JSON.stringify(updatedPatientList));
+        } catch (error) {
+          console.error('Failed to update stored patient list:', error);
+          patientListUpdated = false;
+        }
+      }
+
+      showToast(
+        patientListUpdated
+          ? 'Family member deactivated successfully.'
+          : 'Family member deactivated. Refresh the page to update the saved list.'
+      );
+    } catch (error) {
+      console.error('Failed to deactivate family member:', error);
+      showToast(error?.message || 'Error deactivating family member.');
+    } finally {
+      setDeactivatingPatientId(null);
+    }
+  };
+
   const handleSelectHospital = (hospital) => {
     setActiveHospital(hospital);
     localStorage.setItem('selectedHospital', JSON.stringify(hospital));
@@ -507,10 +569,7 @@ export default function Navbar() {
                 </NavLink>
               </li>
               <li className="nav-item">
-                <NavLink 
-                  className={`nav-link nav-ari-link ${isRadiologyActive ? 'active' : ''}`} 
-                  to="/appointments?tab=radiology"
-                >
+                <NavLink className="nav-link nav-ari-link" to="/book-radiology-and-lab-test">
                   <i className="fas fa-x-ray me-1" style={{ color: '#7C3AED' }}></i>
                   Book Radiology &amp; Lab
                 </NavLink>
@@ -949,8 +1008,8 @@ export default function Navbar() {
                       </div>
                     </div>
 
-                    <div>
-                      {pt.id !== activePatientId ? (
+                    <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                      {String(pt.id) !== String(activePatientId) ? (
                         <button
                           type="button"
                           className="btn btn-outline-primary btn-sm fw-bold"
@@ -966,6 +1025,31 @@ export default function Navbar() {
                           <i className="fas fa-check-circle me-1"></i> Current
                         </span>
                       )}
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm fw-bold"
+                        onClick={() => handleDeactivateFamilyMember(pt)}
+                        disabled={
+                          String(pt.id) === String(activePatientId) ||
+                          deactivatingPatientId !== null
+                        }
+                        title={
+                          String(pt.id) === String(activePatientId)
+                            ? 'Switch to another profile before deactivating this patient.'
+                            : 'Deactivate family member'
+                        }
+                      >
+                        {deactivatingPatientId === String(pt.id) ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Deactivating...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-user-slash me-1"></i> Deactivate
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 ))}
