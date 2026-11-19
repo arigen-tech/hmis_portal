@@ -95,5 +95,8 @@ export const ENDPOINTS = {
   PATIENTS: {
     ADD_FAMILY_MEMBER: '/patient/register/family-member',
     DEACTIVATE_FAMILY_MEMBER: '/mobileController/patientInactive',
+    FOR_ACTIVATION: '/mobileController/patientsForActivation',
+    SEND_ACTIVATION_OTP: '/mobileController/sendPatientActivationOtp',
+    VERIFY_ACTIVATION_OTP: '/mobileController/verifyPatientActivationOtp',
   }
 };

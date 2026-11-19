@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AlertNotification from '../components/AlertNotification';
+import PatientActivation from '../components/PatientActivation';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
+import { getPatientForToken } from '../utils/patientSession';
+
+const isInactivePatientError = (error) =>
+  Number(error?.status || error?.data?.status) === 403 ||
+  /patient is currently inactive/i.test(error?.message || error?.data?.message || '');
 
 const COUNTRY_CODES = [
   { code: '+91', country: 'India' },
@@ -11,6 +17,24 @@ const COUNTRY_CODES = [
   { code: '+61', country: 'Australia' },
   { code: '+971', country: 'UAE' },
 ];
+
+const storeLoginPatientSession = (response) => {
+  const patientList = Array.isArray(response.patientIdResponseList)
+    ? response.patientIdResponseList
+    : [];
+  const activePatient = getPatientForToken(response.token, patientList);
+
+  if (patientList.length > 0) {
+    localStorage.setItem('patientList', JSON.stringify(patientList));
+  } else {
+    localStorage.removeItem('patientList');
+  }
+  if (activePatient) {
+    localStorage.setItem('patientDetails', JSON.stringify(activePatient));
+  } else {
+    localStorage.removeItem('patientDetails');
+  }
+};
 
 export default function Login() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -29,6 +53,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingInWithPassword, setIsLoggingInWithPassword] = useState(false);
+  const [showInactivePatientPrompt, setShowInactivePatientPrompt] = useState(false);
+  const [showPatientActivation, setShowPatientActivation] = useState(false);
 
   const inputRef = useRef(null);
   const passwordRef = useRef(null);
@@ -112,20 +138,25 @@ export default function Login() {
         if (data.response.refreshToken) {
           localStorage.setItem('refreshToken', data.response.refreshToken);
         }
-        if (data.response.patientIdResponseList && data.response.patientIdResponseList.length > 0) {
-          localStorage.setItem('patientDetails', JSON.stringify(data.response.patientIdResponseList[0]));
-          localStorage.setItem('patientList', JSON.stringify(data.response.patientIdResponseList));
-        }
+        storeLoginPatientSession(data.response);
 
         setAlert({ message: data.response.message || 'Login successful! Redirecting...', type: 'success' });
         setTimeout(() => {
           navigate('/dashboard');
         }, 1000);
+      } else if (isInactivePatientError(data)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
       } else {
         setAlert({ message: data.message || 'Login failed. Please check your credentials.', type: 'error' });
       }
     } catch (error) {
-      setAlert({ message: error?.message || 'Network Error. Failed to login.', type: 'error' });
+      if (isInactivePatientError(error)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
+      } else {
+        setAlert({ message: error?.message || 'Network Error. Failed to login.', type: 'error' });
+      }
     } finally {
       setIsLoggingInWithPassword(false);
     }
@@ -145,11 +176,19 @@ export default function Login() {
         setOtp(['', '', '', '', '', '']);
         setShowOtpInput(true);
         setAlert({ message: data.response.message || 'OTP sent successfully', type: 'success' });
+      } else if (isInactivePatientError(data)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
       } else {
         setAlert({ message: data.message || 'Failed to send OTP', type: 'error' });
       }
     } catch (error) {
-      setAlert({ message: error?.message || 'Network Error. Failed to send OTP.', type: 'error' });
+      if (isInactivePatientError(error)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
+      } else {
+        setAlert({ message: error?.message || 'Network Error. Failed to send OTP.', type: 'error' });
+      }
     } finally {
       setIsSendingOtp(false);
     }
@@ -217,21 +256,25 @@ export default function Login() {
         if (data.response.refreshToken) {
           localStorage.setItem('refreshToken', data.response.refreshToken);
         }
-        // Store patient details if available
-        if (data.response.patientIdResponseList && data.response.patientIdResponseList.length > 0) {
-          localStorage.setItem('patientDetails', JSON.stringify(data.response.patientIdResponseList[0]));
-          localStorage.setItem('patientList', JSON.stringify(data.response.patientIdResponseList));
-        }
+        storeLoginPatientSession(data.response);
         
         setAlert({ message: data.response.message || 'Login successful! Redirecting...', type: 'success' });
         setTimeout(() => {
           navigate('/dashboard');
         }, 1000);
+      } else if (isInactivePatientError(data)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
       } else {
         setAlert({ message: data.message || 'Invalid OTP', type: 'error' });
       }
     } catch (error) {
-      setAlert({ message: error?.message || 'Network Error. Failed to verify OTP.', type: 'error' });
+      if (isInactivePatientError(error)) {
+        setAlert(null);
+        setShowInactivePatientPrompt(true);
+      } else {
+        setAlert({ message: error?.message || 'Network Error. Failed to verify OTP.', type: 'error' });
+      }
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -240,6 +283,52 @@ export default function Login() {
   return (
     <div className="container-fluid px-0">
       <AlertNotification alert={alert} onClose={() => setAlert(null)} />
+      {showInactivePatientPrompt && (
+        <div className="modal-backdrop-custom" onClick={() => setShowInactivePatientPrompt(false)}>
+          <div className="modal-dialog-custom" style={{ maxWidth: '440px' }} onClick={event => event.stopPropagation()}>
+            <div className="modal-header-custom">
+              <h5 className="fw-bold">Patient Account Inactive</h5>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowInactivePatientPrompt(false)}
+                aria-label="Close"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body-custom">
+              <p className="mb-0">This patient is inactive. Would you like to activate your account?</p>
+            </div>
+            <div className="modal-footer-custom">
+              <button type="button" className="btn btn-light" onClick={() => setShowInactivePatientPrompt(false)}>
+                No
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowInactivePatientPrompt(false);
+                  setShowPatientActivation(true);
+                }}
+              >
+                Yes, activate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPatientActivation && (
+        <PatientActivation
+          initialMobile={mobileNumber}
+          onClose={() => setShowPatientActivation(false)}
+          onSuccess={({ message }) => {
+            setShowPatientActivation(false);
+            setAlert({ message: `${message} Please log in to continue.`, type: 'success' });
+            navigate('/login', { replace: true });
+          }}
+        />
+      )}
       
       <div className="row g-0">
         <div className="col-md-7 medical-theme-section">
