@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import { ENDPOINTS } from '../constants/apiEndpoints';
+import PatientActivation from './PatientActivation';
+import { getPatientForToken, getPatientIdentityFromToken } from '../utils/patientSession';
 
 export default function Navbar() {
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
@@ -10,6 +12,7 @@ export default function Navbar() {
   const [patientData, setPatientData] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [patientToActivate, setPatientToActivate] = useState(null);
   const [showSwitchSubmenu, setShowSwitchSubmenu] = useState(false);
   const [showHospitalMenu, setShowHospitalMenu] = useState(false);
   const [patients, setPatients] = useState([]);
@@ -70,6 +73,41 @@ export default function Navbar() {
 
     if (years < 0) return '';
     return `${years}Y ${months}M ${days}D`;
+  };
+
+  const handlePatientActivated = ({ patientId, message }) => {
+    const updatedPatients = patients.map(patient => {
+      if (String(patient.id) !== String(patientId)) return patient;
+      const originalData = { ...patient.originalData, status: 'ACTIVE' };
+      return { ...patient, status: 'ACTIVE', originalData };
+    });
+    setPatients(updatedPatients);
+
+    let patientListUpdated = true;
+    const storedPatientList = localStorage.getItem('patientList');
+    if (storedPatientList) {
+      try {
+        const parsedPatientList = JSON.parse(storedPatientList);
+        if (!Array.isArray(parsedPatientList)) {
+          throw new Error('Stored patient list is not an array.');
+        }
+        localStorage.setItem('patientList', JSON.stringify(parsedPatientList.map(patient =>
+          String(patient.patientId ?? patient.id) === String(patientId)
+            ? { ...patient, status: 'ACTIVE' }
+            : patient
+        )));
+      } catch (error) {
+        console.error('Failed to update stored patient status:', error);
+        patientListUpdated = false;
+      }
+    }
+
+    setPatientToActivate(null);
+    showToast(
+      patientListUpdated
+        ? message || 'Patient activated successfully.'
+        : `${message || 'Patient activated successfully.'} Refresh the page if the family list does not update.`
+    );
   };
 
   const handleMemberChange = (e) => {
@@ -144,13 +182,22 @@ export default function Navbar() {
     
     if (activeData) {
       try {
-        const parsedActive = JSON.parse(activeData);
+        const storedActive = JSON.parse(activeData);
+        const parsedList = listData ? JSON.parse(listData) : [];
+        const token = localStorage.getItem('token');
+        const tokenIdentity = getPatientIdentityFromToken(token);
+        const parsedActive = tokenIdentity
+          ? getPatientForToken(token, Array.isArray(parsedList) ? parsedList : [])
+          : storedActive;
+
+        if (tokenIdentity) {
+          localStorage.setItem('patientDetails', JSON.stringify(parsedActive));
+        }
         setPatientData(parsedActive);
         setActivePatientId(parsedActive.patientId || 1);
         setNewMemberForm(prev => ({ ...prev, mobileNo: parsedActive.patientPhoneNumber || parsedActive.mobileNo || '' }));
         
-        if (listData) {
-          const parsedList = JSON.parse(listData);
+        if (Array.isArray(parsedList) && parsedList.length > 0) {
           const mappedPatients = parsedList.map(p => ({
             id: p.patientId,
             name: p.patientName,
@@ -159,6 +206,7 @@ export default function Navbar() {
             age: p.age || 'N/A',
             dob: 'N/A',
             patientId: p.patientId,
+            status: p.status,
             originalData: p
           }));
           setPatients(mappedPatients);
@@ -171,6 +219,7 @@ export default function Navbar() {
             age: parsedActive.age || 'N/A',
             dob: 'N/A',
             patientId: parsedActive.patientId || 'N/A',
+            status: parsedActive.status,
             originalData: parsedActive
           }]);
         }
@@ -342,6 +391,7 @@ export default function Navbar() {
           age: newPatient.patientAge,
           dob: newPatient.patientDob,
           mobileNo: newPatient.patientMobileNumber,
+          status: newPatient.status || 'ACTIVE',
         };
 
         // Update component state
@@ -353,6 +403,7 @@ export default function Navbar() {
           age: newPatientData.age || 'N/A',
           dob: newPatientData.dob || 'N/A',
           patientId: newPatientData.patientId,
+          status: newPatientData.status,
           originalData: newPatientData
         };
 
@@ -411,8 +462,12 @@ export default function Navbar() {
         return;
       }
 
-      const removedPatientId = String(patient.id);
-      setPatients(current => current.filter(member => String(member.id) !== removedPatientId));
+      const deactivatedPatientId = String(patient.id);
+      setPatients(current => current.map(member => {
+        if (String(member.id) !== deactivatedPatientId) return member;
+        const originalData = { ...member.originalData, status: 'INACTIVE' };
+        return { ...member, status: 'INACTIVE', originalData };
+      }));
 
       let patientListUpdated = true;
       const storedPatientList = localStorage.getItem('patientList');
@@ -422,8 +477,10 @@ export default function Navbar() {
           if (!Array.isArray(parsedPatientList)) {
             throw new Error('Stored patient list is not an array.');
           }
-          const updatedPatientList = parsedPatientList.filter(
-            member => String(member.patientId ?? member.id) !== removedPatientId
+          const updatedPatientList = parsedPatientList.map(member =>
+            String(member.patientId ?? member.id) === deactivatedPatientId
+              ? { ...member, status: 'INACTIVE' }
+              : member
           );
           localStorage.setItem('patientList', JSON.stringify(updatedPatientList));
         } catch (error) {
@@ -458,6 +515,11 @@ export default function Navbar() {
   };
 
   const handleSelectPatient = async (patient) => {
+    if (String(patient.originalData?.status || patient.status || '').toUpperCase() === 'INACTIVE') {
+      showToast('This patient account is inactive. Activate it before switching profiles.');
+      return;
+    }
+
     try {
       const activeData = localStorage.getItem('patientDetails');
       let mobileNumber = '';
@@ -470,15 +532,53 @@ export default function Navbar() {
 
       if (response.status === 200 && response.response) {
         const data = response.response;
-        if (data.token) localStorage.setItem('token', data.token);
+        if (!data.token) {
+          showToast('Unable to switch profile: the server did not return a patient token.');
+          return;
+        }
+        localStorage.setItem('token', data.token);
         if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
 
-        let newPatientDetails = patient.originalData;
-        if (data.patientIdResponseList && data.patientIdResponseList.length > 0) {
-          newPatientDetails = data.patientIdResponseList[0];
+        let storedPatientList = patients.map(member => member.originalData).filter(Boolean);
+        const storedPatientListJson = localStorage.getItem('patientList');
+        if (storedPatientListJson) {
+          try {
+            const parsedPatientList = JSON.parse(storedPatientListJson);
+            if (Array.isArray(parsedPatientList)) {
+              storedPatientList = parsedPatientList;
+            }
+          } catch (error) {
+            console.error('Failed to parse stored patient list before switching:', error);
+          }
         }
 
-        setActivePatientId(patient.id);
+        const switchedPatientList = Array.isArray(data.patientIdResponseList)
+          ? data.patientIdResponseList
+          : [];
+        const mergedPatientList = [...storedPatientList];
+        switchedPatientList.forEach(responsePatient => {
+          const responsePatientId = String(responsePatient.patientId ?? responsePatient.id);
+          const existingIndex = mergedPatientList.findIndex(existingPatient =>
+            String(existingPatient.patientId ?? existingPatient.id) === responsePatientId
+          );
+          if (existingIndex === -1) {
+            mergedPatientList.push(responsePatient);
+          } else {
+            mergedPatientList[existingIndex] = {
+              ...mergedPatientList[existingIndex],
+              ...responsePatient,
+              status: responsePatient.status ?? mergedPatientList[existingIndex].status
+            };
+          }
+        });
+
+        if (mergedPatientList.length > 0) {
+          localStorage.setItem('patientList', JSON.stringify(mergedPatientList));
+        }
+
+        const newPatientDetails = getPatientForToken(data.token, mergedPatientList, patient.id);
+
+        setActivePatientId(newPatientDetails.patientId || patient.id);
         setPatientData(newPatientDetails);
         localStorage.setItem('patientDetails', JSON.stringify(newPatientDetails));
         
@@ -780,7 +880,9 @@ export default function Navbar() {
                       {/* Collapsible Switch Submenu */}
                       {showSwitchSubmenu && (
                         <div className="switch-patient-submenu">
-                          {patients.map((pt) => (
+                          {patients.filter(pt =>
+                            String(pt.status || pt.originalData?.status || '').toUpperCase() !== 'INACTIVE'
+                          ).map((pt) => (
                             <div
                               key={pt.id}
                               className={`switch-patient-row ${pt.id === activePatientId ? 'active' : ''}`}
@@ -1001,6 +1103,9 @@ export default function Navbar() {
                           {pt.id === activePatientId && (
                             <span className="badge bg-success">Active Profile</span>
                           )}
+                          {String(pt.status || pt.originalData?.status || '').toUpperCase() === 'INACTIVE' && (
+                            <span className="badge bg-secondary">Inactive</span>
+                          )}
                         </div>
                         <div className="small text-muted">
                           {pt.gender}, {pt.age} yrs • DOB: {pt.dob} • ID: {pt.patientId}
@@ -1010,6 +1115,15 @@ export default function Navbar() {
 
                     <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                       {String(pt.id) !== String(activePatientId) ? (
+                        String(pt.status || pt.originalData?.status || '').toUpperCase() === 'INACTIVE' ? (
+                          <button
+                            type="button"
+                            className="btn btn-success btn-sm fw-bold"
+                            onClick={() => setPatientToActivate(pt)}
+                          >
+                            <i className="fas fa-user-check me-1"></i> Activate
+                          </button>
+                        ) : (
                         <button
                           type="button"
                           className="btn btn-outline-primary btn-sm fw-bold"
@@ -1020,11 +1134,13 @@ export default function Navbar() {
                         >
                           Switch to {pt.relation}
                         </button>
+                        )
                       ) : (
                         <span className="text-success fw-bold small">
                           <i className="fas fa-check-circle me-1"></i> Current
                         </span>
                       )}
+                      {String(pt.status || pt.originalData?.status || '').toUpperCase() !== 'INACTIVE' && (
                       <button
                         type="button"
                         className="btn btn-outline-danger btn-sm fw-bold"
@@ -1050,6 +1166,7 @@ export default function Navbar() {
                           </>
                         )}
                       </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1215,6 +1332,20 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+      )}
+      {patientToActivate && (
+        <PatientActivation
+          initialMobile={
+            patientToActivate.originalData?.patientPhoneNumber ||
+            patientToActivate.originalData?.mobileNo ||
+            patientToActivate.originalData?.patientMobileNumber ||
+            ''
+          }
+          initialPatientId={patientToActivate.id}
+          patientName={patientToActivate.name}
+          onClose={() => setPatientToActivate(null)}
+          onSuccess={handlePatientActivated}
+        />
       )}
 
       {/* Floating Action Toast */}
